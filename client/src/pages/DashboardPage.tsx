@@ -96,6 +96,8 @@ interface TicketOverview {
     priority: string;
     loe_hours: number;
     phase: string;
+    reporter_name: string | null;
+    assignee_name: string | null;
     updated_at: string;
   }>;
 }
@@ -629,6 +631,8 @@ export function DashboardPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Key</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Summary</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Updated</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assignee</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">LOE</th>
               </tr>
             </thead>
@@ -645,7 +649,7 @@ export function DashboardPage() {
                       {ticket.key}
                     </a>
                   </td>
-                  <td className="px-6 py-4 max-w-md truncate" title={ticket.summary}>
+                  <td className="px-6 py-4 max-w-xs truncate" title={ticket.summary}>
                     {ticket.summary}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -658,6 +662,17 @@ export function DashboardPage() {
                     }`}>
                       {ticket.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {ticket.updated_at ? new Date(ticket.updated_at).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }) : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {ticket.assignee_name || ticket.reporter_name || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     {ticket.loe_hours ? `${ticket.loe_hours}h` : '-'}

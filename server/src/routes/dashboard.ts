@@ -220,6 +220,8 @@ dashboardRouter.get('/ticket-overview', (req, res, next) => {
       SELECT 
         jt.key, jt.summary, jt.application, jt.status, jt.priority, jt.loe_hours,
         jp.phase,
+        jt.reporter_name,
+        jt.assignee_name,
         datetime(jt.jira_updated_at) as updated_at
       FROM jira_tickets jt
       JOIN jira_projects jp ON jt.project_key = jp.key

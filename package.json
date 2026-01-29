@@ -1,0 +1,35 @@
+{
+  "name": "vendor-hours-tracker",
+  "version": "1.0.0",
+  "description": "Dashboard for tracking vendor hours against fixed monthly budget allocations",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w server && npm run build -w client",
+    "start": "npm run start -w server",
+    "db:migrate": "npm run db:migrate -w server",
+    "db:seed": "npm run db:seed -w server",
+    "db:clear-mock": "npm run db:clear-mock -w server",
+    "lint": "npm run lint -w client && npm run lint -w server",
+    "typecheck": "npm run typecheck -w client && npm run typecheck -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT",
+  "author": "David Brandes",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moravian/vendor-hours-tracker"
+  }
+}

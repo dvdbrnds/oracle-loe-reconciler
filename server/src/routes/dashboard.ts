@@ -256,6 +256,7 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
     // For all-time view, aggregate across all periods
     if (isAllTime) {
       // Get total burnt hours across all time with LOE breakdown and work type breakdown
+      // IMPORTANT: Only MOCS project hours count against the budget
       // Note: Urgent work (Critical/High priority or Payroll) is expected without LOE approval
       const burntResult = db.prepare(`
         SELECT 
@@ -293,6 +294,7 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
         FROM burnt_hours bh
         LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
         WHERE bh.is_mock_data = 0
+          AND (bh.jira_project = 'MOCS' OR bh.is_admin_overhead = 1)
       `).get() as { 
         total_burnt: number; 
         admin_overhead: number; 
@@ -357,6 +359,7 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
     const allocatedHours = budget?.allocated_hours ?? config.defaultMonthlyHours;
 
     // Get burnt hours for the selected period with LOE breakdown and work type breakdown
+    // IMPORTANT: Only MOCS project hours count against the budget
     // Now filter by ticket approval month (loe_approved_at) instead of work_date
     // Note: Urgent work (Critical/High priority or Payroll) is expected without LOE approval
     const burntResult = db.prepare(`
@@ -394,6 +397,7 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
       FROM burnt_hours bh
       LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
       WHERE bh.is_mock_data = 0
+        AND (bh.jira_project = 'MOCS' OR bh.is_admin_overhead = 1)
         AND (
           -- Use loe_approved_at month if available, otherwise fall back to work_date
           (jt.loe_approved_at IS NOT NULL AND strftime('%Y', jt.loe_approved_at) = ? AND strftime('%m', jt.loe_approved_at) = ?)

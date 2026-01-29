@@ -1,0 +1,49 @@
+---
+description: Always update Penny Lane MCP server when pushing to GitHub
+alwaysApply: true
+---
+
+# Penny Lane Documentation Sync
+
+**RULE**: Always update Penny Lane after every GitHub commit/push.
+
+## When to Update
+
+After every `git push` to GitHub, use the `memory_store` tool from the `user-penny-lane` MCP server to document:
+
+- New features or functionality
+- Configuration changes
+- API changes or new endpoints
+- Database schema changes
+- Important bug fixes
+- Deployment/infrastructure changes
+
+## How to Update
+
+```
+CallMcpTool:
+  server: user-penny-lane
+  toolName: memory_store
+  arguments:
+    content: "# Feature/Change Title\n\nDescription of what changed..."
+    tags: ["relevant", "tags"]
+    project: "oracle-loe-reconciler"
+```
+
+## Required Fields
+
+- `content`: Markdown description of the change
+- `tags`: Array of relevant tags for categorization
+- `project`: Always use `"oracle-loe-reconciler"`
+
+## Example
+
+After adding a new API endpoint:
+
+```json
+{
+  "content": "# New Endpoint: /api/reports/summary\n\nReturns aggregated report data...",
+  "tags": ["api", "reports", "endpoint"],
+  "project": "oracle-loe-reconciler"
+}
+```

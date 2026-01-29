@@ -89,6 +89,12 @@ export interface BudgetOverview {
     hoursUrgent: number;
     hoursUnapproved: number;
   };
+  workTypeBreakdown?: {
+    urgent: number;   // P1/P2 priority (non-payroll)
+    payroll: number;  // Payroll-related work
+    regular: number;  // All other work
+    admin: number;    // Admin/overhead hours
+  };
   burnPercent: number;
   burnRate: number | null;
   projectedTotal: number | null;

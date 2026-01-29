@@ -255,7 +255,7 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
 
     // For all-time view, aggregate across all periods
     if (isAllTime) {
-      // Get total burnt hours across all time with LOE breakdown
+      // Get total burnt hours across all time with LOE breakdown and work type breakdown
       // Note: Urgent work (Critical/High priority or Payroll) is expected without LOE approval
       const burntResult = db.prepare(`
         SELECT 
@@ -274,7 +274,22 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
               AND bh.is_admin_overhead = 0
               AND (jt.priority IS NULL OR jt.priority NOT IN ('Critical', 'High', 'Highest'))
               AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%'
-            THEN bh.hours ELSE 0 END), 0) as hours_unapproved
+            THEN bh.hours ELSE 0 END), 0) as hours_unapproved,
+          -- Work type breakdown for stacked progress bar
+          COALESCE(SUM(CASE 
+            WHEN bh.is_admin_overhead = 0
+              AND jt.priority IN ('Critical', 'High', 'Highest')
+              AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+            THEN bh.hours ELSE 0 END), 0) as hours_urgent_priority,
+          COALESCE(SUM(CASE 
+            WHEN bh.is_admin_overhead = 0
+              AND (jt.module LIKE '%Payroll%' OR jt.summary LIKE '%Payroll%' OR jt.summary LIKE '%payroll%')
+            THEN bh.hours ELSE 0 END), 0) as hours_payroll,
+          COALESCE(SUM(CASE 
+            WHEN bh.is_admin_overhead = 0
+              AND (jt.priority IS NULL OR jt.priority NOT IN ('Critical', 'High', 'Highest'))
+              AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+            THEN bh.hours ELSE 0 END), 0) as hours_regular
         FROM burnt_hours bh
         LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
         WHERE bh.is_mock_data = 0
@@ -286,6 +301,9 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
         hours_approved_no_loe: number;
         hours_urgent: number;
         hours_unapproved: number;
+        hours_urgent_priority: number;
+        hours_payroll: number;
+        hours_regular: number;
       };
 
       // Get total allocated hours across all budget periods
@@ -313,6 +331,12 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
           hoursUrgent: Math.round(burntResult.hours_urgent * 10) / 10,
           hoursUnapproved: Math.round(burntResult.hours_unapproved * 10) / 10,
         },
+        workTypeBreakdown: {
+          urgent: Math.round(burntResult.hours_urgent_priority * 10) / 10,
+          payroll: Math.round(burntResult.hours_payroll * 10) / 10,
+          regular: Math.round(burntResult.hours_regular * 10) / 10,
+          admin: Math.round(adminOverhead * 10) / 10,
+        },
         burnPercent: Math.round(burnPercent * 10) / 10,
         burnRate: null,
         projectedTotal: null,
@@ -332,7 +356,7 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
 
     const allocatedHours = budget?.allocated_hours ?? config.defaultMonthlyHours;
 
-    // Get burnt hours for the selected period with LOE breakdown
+    // Get burnt hours for the selected period with LOE breakdown and work type breakdown
     // Now filter by ticket approval month (loe_approved_at) instead of work_date
     // Note: Urgent work (Critical/High priority or Payroll) is expected without LOE approval
     const burntResult = db.prepare(`
@@ -351,7 +375,22 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
             AND bh.is_admin_overhead = 0
             AND (jt.priority IS NULL OR jt.priority NOT IN ('Critical', 'High', 'Highest'))
             AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%'
-          THEN bh.hours ELSE 0 END), 0) as hours_unapproved
+          THEN bh.hours ELSE 0 END), 0) as hours_unapproved,
+        -- Work type breakdown for stacked progress bar
+        COALESCE(SUM(CASE 
+          WHEN bh.is_admin_overhead = 0
+            AND jt.priority IN ('Critical', 'High', 'Highest')
+            AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+          THEN bh.hours ELSE 0 END), 0) as hours_urgent_priority,
+        COALESCE(SUM(CASE 
+          WHEN bh.is_admin_overhead = 0
+            AND (jt.module LIKE '%Payroll%' OR jt.summary LIKE '%Payroll%' OR jt.summary LIKE '%payroll%')
+          THEN bh.hours ELSE 0 END), 0) as hours_payroll,
+        COALESCE(SUM(CASE 
+          WHEN bh.is_admin_overhead = 0
+            AND (jt.priority IS NULL OR jt.priority NOT IN ('Critical', 'High', 'Highest'))
+            AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+          THEN bh.hours ELSE 0 END), 0) as hours_regular
       FROM burnt_hours bh
       LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
       WHERE bh.is_mock_data = 0
@@ -372,6 +411,9 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
       hours_approved_no_loe: number;
       hours_urgent: number;
       hours_unapproved: number;
+      hours_urgent_priority: number;
+      hours_payroll: number;
+      hours_regular: number;
     };
 
     const totalBurnt = burntResult.total_burnt;
@@ -409,6 +451,12 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
         hoursApprovedNoLoe: Math.round(burntResult.hours_approved_no_loe * 10) / 10,
         hoursUrgent: Math.round(burntResult.hours_urgent * 10) / 10,
         hoursUnapproved: Math.round(burntResult.hours_unapproved * 10) / 10,
+      },
+      workTypeBreakdown: {
+        urgent: Math.round(burntResult.hours_urgent_priority * 10) / 10,
+        payroll: Math.round(burntResult.hours_payroll * 10) / 10,
+        regular: Math.round(burntResult.hours_regular * 10) / 10,
+        admin: Math.round(burntResult.admin_overhead * 10) / 10,
       },
       burnPercent: Math.round(burnPercent * 10) / 10,
       burnRate: isCurrentMonth ? Math.round(burnRate * 10) / 10 : null,

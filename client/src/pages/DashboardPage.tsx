@@ -269,7 +269,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Budget Progress */}
+      {/* Budget Progress - Stacked Bar */}
       {budget && (
         <InfoTooltip
           content={
@@ -280,6 +280,15 @@ export function DashboardPage() {
                 <p className="text-sm text-gray-600">
                   Hours are attributed to months based on when tickets were LOE Approved.
                 </p>
+              )}
+              {budget.workTypeBreakdown && (
+                <div className="text-sm space-y-1 pt-2 border-t">
+                  <p className="font-medium">Work Type Breakdown:</p>
+                  <p><span className="inline-block w-3 h-3 bg-red-500 rounded mr-2"></span>Urgent (P1/P2): {budget.workTypeBreakdown.urgent}h</p>
+                  <p><span className="inline-block w-3 h-3 bg-purple-500 rounded mr-2"></span>Payroll: {budget.workTypeBreakdown.payroll}h</p>
+                  <p><span className="inline-block w-3 h-3 bg-blue-500 rounded mr-2"></span>Regular: {budget.workTypeBreakdown.regular}h</p>
+                  <p><span className="inline-block w-3 h-3 bg-gray-400 rounded mr-2"></span>Admin: {budget.workTypeBreakdown.admin}h</p>
+                </div>
               )}
             </div>
           }
@@ -320,12 +329,80 @@ export function DashboardPage() {
                 </div>
               );
             })()}
-            <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 ${STATUS_COLORS[budget.status || 'green']}`}
-                style={{ width: `${Math.min(100, budget.burnPercent || 0)}%` }}
-              />
+            
+            {/* Stacked Progress Bar */}
+            <div className="h-6 bg-gray-200 rounded-full overflow-hidden flex">
+              {budget.workTypeBreakdown && budget.allocatedHours > 0 ? (
+                <>
+                  {/* Urgent (P1/P2) - Red */}
+                  {budget.workTypeBreakdown.urgent > 0 && (
+                    <div
+                      className="bg-red-500 h-full transition-all duration-500 relative group"
+                      style={{ width: `${(budget.workTypeBreakdown.urgent / budget.allocatedHours) * 100}%` }}
+                      title={`Urgent (P1/P2): ${budget.workTypeBreakdown.urgent}h`}
+                    />
+                  )}
+                  {/* Payroll - Purple */}
+                  {budget.workTypeBreakdown.payroll > 0 && (
+                    <div
+                      className="bg-purple-500 h-full transition-all duration-500"
+                      style={{ width: `${(budget.workTypeBreakdown.payroll / budget.allocatedHours) * 100}%` }}
+                      title={`Payroll: ${budget.workTypeBreakdown.payroll}h`}
+                    />
+                  )}
+                  {/* Regular - Blue */}
+                  {budget.workTypeBreakdown.regular > 0 && (
+                    <div
+                      className="bg-blue-500 h-full transition-all duration-500"
+                      style={{ width: `${(budget.workTypeBreakdown.regular / budget.allocatedHours) * 100}%` }}
+                      title={`Regular: ${budget.workTypeBreakdown.regular}h`}
+                    />
+                  )}
+                  {/* Admin - Gray */}
+                  {budget.workTypeBreakdown.admin > 0 && (
+                    <div
+                      className="bg-gray-400 h-full transition-all duration-500"
+                      style={{ width: `${(budget.workTypeBreakdown.admin / budget.allocatedHours) * 100}%` }}
+                      title={`Admin/Overhead: ${budget.workTypeBreakdown.admin}h`}
+                    />
+                  )}
+                </>
+              ) : (
+                // Fallback to simple progress bar if no breakdown available
+                <div
+                  className={`h-full transition-all duration-500 ${STATUS_COLORS[budget.status || 'green']}`}
+                  style={{ width: `${Math.min(100, budget.burnPercent || 0)}%` }}
+                />
+              )}
             </div>
+            
+            {/* Legend */}
+            {budget.workTypeBreakdown && (
+              <div className="flex flex-wrap gap-4 mt-3 text-xs">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 bg-red-500 rounded"></span>
+                  <span className="text-gray-600">Urgent (P1/P2)</span>
+                  <span className="font-semibold">{budget.workTypeBreakdown.urgent}h</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 bg-purple-500 rounded"></span>
+                  <span className="text-gray-600">Payroll</span>
+                  <span className="font-semibold">{budget.workTypeBreakdown.payroll}h</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 bg-blue-500 rounded"></span>
+                  <span className="text-gray-600">Regular</span>
+                  <span className="font-semibold">{budget.workTypeBreakdown.regular}h</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 bg-gray-400 rounded"></span>
+                  <span className="text-gray-600">Admin</span>
+                  <span className="font-semibold">{budget.workTypeBreakdown.admin}h</span>
+                </span>
+              </div>
+            )}
+            
+            {/* Percentage markers */}
             <div className="flex justify-between mt-2 text-xs text-gray-500">
               <span>0%</span>
               <span className="text-yellow-600">50%</span>

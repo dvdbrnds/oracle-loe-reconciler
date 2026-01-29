@@ -294,7 +294,7 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
         FROM burnt_hours bh
         LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
         WHERE bh.is_mock_data = 0
-          AND (bh.jira_project = 'MOCS' OR bh.is_admin_overhead = 1)
+          AND (bh.ticket_key LIKE 'MOCS-%' OR bh.is_admin_overhead = 1)
       `).get() as { 
         total_burnt: number; 
         admin_overhead: number; 
@@ -397,7 +397,7 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
       FROM burnt_hours bh
       LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
       WHERE bh.is_mock_data = 0
-        AND (bh.jira_project = 'MOCS' OR bh.is_admin_overhead = 1)
+        AND (bh.ticket_key LIKE 'MOCS-%' OR bh.is_admin_overhead = 1)
         AND (
           -- Use loe_approved_at month if available, otherwise fall back to work_date
           (jt.loe_approved_at IS NOT NULL AND strftime('%Y', jt.loe_approved_at) = ? AND strftime('%m', jt.loe_approved_at) = ?)

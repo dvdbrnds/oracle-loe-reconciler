@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { toast } from '../components/ui/toaster';
-import { Upload, FileSpreadsheet, Clock, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Upload, FileSpreadsheet } from 'lucide-react';
 
 interface ImportBatch {
   id: number;

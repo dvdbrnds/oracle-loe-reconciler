@@ -21,6 +21,10 @@ logs/
 *.log
 npm-debug.log*
 
+# PM2
+.pm2/
+pm2-*.log
+
 # IDE
 .idea/
 *.swp

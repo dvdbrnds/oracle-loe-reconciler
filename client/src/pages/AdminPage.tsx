@@ -1,15 +1,57 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { toast } from '../components/ui/toaster';
-import { Settings, Users, Database, RefreshCw, ExternalLink } from 'lucide-react';
+import { Settings, Users, Database, RefreshCw } from 'lucide-react';
+
+interface AdminConfig {
+  useMockData: boolean;
+  jiraInstanceUrl: string;
+  jiraSyncIntervalMinutes: number;
+  jiraProjects: string[];
+  defaultMonthlyHours: number;
+  hasGoogleChat: boolean;
+  hasSlack: boolean;
+  hasTeams: boolean;
+}
+
+interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  is_mock_data: boolean;
+  created_at: string;
+}
+
+interface Application {
+  code: string;
+  name: string;
+  budget_cap: number | null;
+  is_active: boolean;
+}
+
+interface Project {
+  key: string;
+  name: string;
+  phase: string;
+  is_active: boolean;
+}
+
+interface ReporterMapping {
+  id: number;
+  reporter_name: string;
+  reporter_email: string;
+  application: string | null;
+  application_name: string | null;
+  mapping_type: string;
+}
 
 export function AdminPage() {
-  const [config, setConfig] = useState<any>(null);
-  const [users, setUsers] = useState<any[]>([]);
-  const [applications, setApplications] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [reporterMappings, setReporterMappings] = useState<any[]>([]);
-  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [config, setConfig] = useState<AdminConfig | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [reporterMappings, setReporterMappings] = useState<ReporterMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'config' | 'users' | 'data'>('config');
 
@@ -19,21 +61,19 @@ export function AdminPage() {
 
   async function fetchData() {
     try {
-      const [configData, usersData, appsData, projectsData, mappingsData, syncData] =
+      const [configData, usersData, appsData, projectsData, mappingsData] =
         await Promise.all([
-          api.get('/admin/config'),
-          api.get('/admin/users'),
-          api.get('/admin/applications'),
-          api.get('/admin/projects'),
-          api.get('/admin/reporter-mappings'),
-          api.get('/sync/status'),
+          api.get<AdminConfig>('/admin/config'),
+          api.get<{ users: AdminUser[] }>('/admin/users'),
+          api.get<{ applications: Application[] }>('/admin/applications'),
+          api.get<{ projects: Project[] }>('/admin/projects'),
+          api.get<{ mappings: ReporterMapping[] }>('/admin/reporter-mappings'),
         ]);
       setConfig(configData);
       setUsers(usersData.users);
       setApplications(appsData.applications);
       setProjects(projectsData.projects);
       setReporterMappings(mappingsData.mappings);
-      setSyncStatus(syncData);
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
       toast({ title: 'Failed to load admin data', variant: 'destructive' });
@@ -44,7 +84,7 @@ export function AdminPage() {
 
   async function handleSyncJira() {
     try {
-      const result = await api.post('/sync/jira', {});
+      const result = await api.post<{ success: boolean; message: string }>('/sync/jira', {});
       toast({
         title: result.success ? 'Sync complete' : 'Sync not available',
         description: result.message,

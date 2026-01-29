@@ -148,11 +148,32 @@ async function main() {
       startSyncScheduler();
     });
 
-    // Graceful shutdown
-    process.on('SIGINT', () => {
-      console.log('\n🛑 Shutting down...');
-      if (syncInterval) clearInterval(syncInterval);
-      process.exit(0);
+    // Graceful shutdown handler
+    const gracefulShutdown = (signal: string) => {
+      console.log(`\n🛑 Received ${signal}. Shutting down gracefully...`);
+      if (syncInterval) {
+        clearInterval(syncInterval);
+        syncInterval = null;
+      }
+      // Allow time for cleanup
+      setTimeout(() => {
+        console.log('👋 Server shutdown complete.');
+        process.exit(0);
+      }, 1000);
+    };
+
+    // Handle shutdown signals (PM2 sends SIGINT, then SIGTERM)
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      console.error('❌ Uncaught Exception:', error);
+      gracefulShutdown('uncaughtException');
+    });
+    
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
     });
 
   } catch (error) {

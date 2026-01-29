@@ -17,7 +17,21 @@
     "db:seed": "npm run db:seed -w server",
     "db:clear-mock": "npm run db:clear-mock -w server",
     "lint": "npm run lint -w client && npm run lint -w server",
-    "typecheck": "npm run typecheck -w client && npm run typecheck -w server"
+    "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
+    "pm2:start": "mkdir -p logs && pm2 start ecosystem.config.cjs --env production",
+    "pm2:start:dev": "mkdir -p logs && pm2 start ecosystem.config.cjs --env development",
+    "pm2:stop": "pm2 stop ecosystem.config.cjs",
+    "pm2:restart": "pm2 restart ecosystem.config.cjs",
+    "pm2:reload": "pm2 reload ecosystem.config.cjs",
+    "pm2:delete": "pm2 delete ecosystem.config.cjs",
+    "pm2:logs": "pm2 logs",
+    "pm2:status": "pm2 status",
+    "pm2:monit": "pm2 monit",
+    "pm2:startup": "pm2 startup",
+    "pm2:save": "pm2 save"
+  },
+  "dependencies": {
+    "pm2": "^5.3.1"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

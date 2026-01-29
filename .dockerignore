@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs (will be rebuilt in Docker)
+dist/
+*/dist/
+build/
+
+# Development files
+.git/
+.gitignore
+.env
+.env.*
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database files (persist via volumes)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+data/
+
+# Logs (persist via volumes)
+logs/
+*.log
+
+# Uploads (persist via volumes)
+server/uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+coverage/
+*.test.ts
+*.spec.ts
+
+# Docker files (don't need to copy themselves)
+Dockerfile*
+docker-compose*
+.dockerignore

@@ -11,6 +11,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:clear-mock": "tsx src/db/clear-mock.ts",
+    "db:create-admin": "tsx src/db/create-admin.ts",
     "sync:jira": "tsx src/db/sync-jira.ts",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit"

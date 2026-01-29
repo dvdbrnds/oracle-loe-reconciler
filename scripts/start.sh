@@ -256,6 +256,13 @@ run_migrations() {
     log_success "Migrations complete"
 }
 
+# Create admin user
+create_admin() {
+    log_info "Creating admin user..."
+    npm run db:create-admin
+    log_success "Admin user ready"
+}
+
 # Start the application
 start_app() {
     check_pm2
@@ -339,6 +346,7 @@ full_setup() {
     install_deps
     build_project
     run_migrations
+    create_admin
     
     echo ""
     log_info "Setup complete! Starting application..."

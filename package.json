@@ -16,6 +16,7 @@
     "db:migrate": "npm run db:migrate -w server",
     "db:seed": "npm run db:seed -w server",
     "db:clear-mock": "npm run db:clear-mock -w server",
+    "db:create-admin": "npm run db:create-admin -w server",
     "lint": "npm run lint -w client && npm run lint -w server",
     "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
     "pm2:start": "mkdir -p logs && pm2 start ecosystem.config.cjs --env production",

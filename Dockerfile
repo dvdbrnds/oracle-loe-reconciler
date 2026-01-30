@@ -38,9 +38,10 @@ COPY --from=builder /app/server/dist ./server/dist
 COPY --from=builder /app/client/dist ./client/dist
 COPY ecosystem.config.cjs ./
 
-# Copy startup script
+# Copy startup script and entrypoint
 COPY scripts/start.sh ./scripts/
-RUN chmod +x ./scripts/start.sh
+COPY docker-entrypoint.sh ./
+RUN chmod +x ./scripts/start.sh ./docker-entrypoint.sh
 
 # Create directories
 RUN mkdir -p logs data server/uploads
@@ -48,6 +49,7 @@ RUN mkdir -p logs data server/uploads
 # Environment variables (can be overridden)
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV DATABASE_PATH=/app/data/vendor-tracker.db
 
 # Expose ports
 EXPOSE 3001
@@ -56,5 +58,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
-# Start with PM2
-CMD ["pm2-runtime", "ecosystem.config.cjs", "--env", "production"]
+# Entrypoint creates admin user on startup, then starts the app
+ENTRYPOINT ["./docker-entrypoint.sh"]

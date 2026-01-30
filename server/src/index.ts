@@ -131,8 +131,8 @@ async function main() {
     console.log('🗄️  Initializing database...');
     initDatabase();
 
-    // Start server
-    app.listen(config.port, () => {
+    // Start server (bind to 0.0.0.0 in Docker so Coolify/health checks can reach it)
+    app.listen(config.port, config.host, () => {
       console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                 VENDOR HOURS TRACKER                          ║

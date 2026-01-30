@@ -10,7 +10,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - DATABASE_PATH=./data/vendor-tracker.db
+      - DATABASE_PATH=/app/data/vendor-tracker.db
       - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
       - DEFAULT_MONTHLY_HOURS=${DEFAULT_MONTHLY_HOURS:-100}
       - USE_MOCK_DATA=${USE_MOCK_DATA:-false}

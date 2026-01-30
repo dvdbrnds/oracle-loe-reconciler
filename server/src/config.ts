@@ -32,6 +32,7 @@ const configSchema = z.object({
   // Server
   nodeEnv: z.enum(['development', 'production', 'test']).default('development'),
   port: z.coerce.number().default(3001),
+  host: z.string().default('0.0.0.0'), // 0.0.0.0 so Docker/Coolify can reach the app
   clientUrl: z.string().default('http://localhost:5173'),
 
   // Database
@@ -70,6 +71,7 @@ function loadConfig() {
   const rawConfig = {
     nodeEnv: process.env.NODE_ENV,
     port: process.env.PORT,
+    host: process.env.HOST,
     clientUrl: process.env.CLIENT_URL,
     databasePath: process.env.DATABASE_PATH,
     jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',

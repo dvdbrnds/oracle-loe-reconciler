@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcryptjs';
 import { config } from '../config.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,6 +23,8 @@ export function initDatabase(): Database.Database {
     ? config.databasePath
     : path.resolve(__dirname, '../..', config.databasePath);
 
+  console.log(`  📁 Database path: ${dbPath}`);
+
   // Ensure db directory exists
   const dbDir = path.dirname(dbPath);
   if (!fs.existsSync(dbDir)) {
@@ -37,7 +40,53 @@ export function initDatabase(): Database.Database {
   // Run migrations
   runMigrations(db);
 
+  // Auto-create admin user if no users exist
+  ensureAdminUser(db);
+
   return db;
+}
+
+/**
+ * Creates the default admin user if no users exist in the database.
+ * This ensures there's always a way to log in after a fresh deploy.
+ */
+function ensureAdminUser(db: Database.Database): void {
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@moravian.edu';
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'greyhound1742';
+  const ADMIN_NAME = process.env.ADMIN_NAME || 'System Administrator';
+
+  try {
+    // Check if any users exist
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+    
+    if (userCount.count === 0) {
+      console.log('  👤 No users found. Creating default admin user...');
+      const passwordHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+      
+      db.prepare(`
+        INSERT INTO users (email, password_hash, name, role, is_mock_data)
+        VALUES (?, ?, ?, 'admin', 0)
+      `).run(ADMIN_EMAIL, passwordHash, ADMIN_NAME);
+      
+      console.log(`  ✅ Admin user created: ${ADMIN_EMAIL}`);
+    } else {
+      // Check if admin exists, create if not
+      const adminExists = db.prepare('SELECT id FROM users WHERE email = ?').get(ADMIN_EMAIL);
+      if (!adminExists) {
+        console.log(`  👤 Creating admin user: ${ADMIN_EMAIL}`);
+        const passwordHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+        
+        db.prepare(`
+          INSERT INTO users (email, password_hash, name, role, is_mock_data)
+          VALUES (?, ?, ?, 'admin', 0)
+        `).run(ADMIN_EMAIL, passwordHash, ADMIN_NAME);
+        
+        console.log(`  ✅ Admin user created: ${ADMIN_EMAIL}`);
+      }
+    }
+  } catch (error) {
+    console.error('  ⚠️ Could not ensure admin user:', error);
+  }
 }
 
 function runMigrations(db: Database.Database) {

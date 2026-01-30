@@ -1,3 +1,5 @@
+import https from 'https';
+import fs from 'fs';
 import { app } from './app.js';
 import { config } from './config.js';
 import { initDatabase, getDb } from './db/database.js';
@@ -131,22 +133,41 @@ async function main() {
     console.log('🗄️  Initializing database...');
     initDatabase();
 
-    // Start server (bind to 0.0.0.0 in Docker so Coolify/health checks can reach it)
+    // Start HTTP server (bind to 0.0.0.0 in Docker so Coolify/health checks can reach it)
     app.listen(config.port, config.host, () => {
-      console.log(`
+      console.log(`  🚀 HTTP server running on http://${config.host}:${config.port}`);
+    });
+
+    // Start HTTPS server if certificates exist
+    const certPath = process.env.SSL_CERT_PATH || '/app/certs/server.crt';
+    const keyPath = process.env.SSL_KEY_PATH || '/app/certs/server.key';
+    const sslPort = parseInt(process.env.SSL_PORT || '3443', 10);
+
+    if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+      const httpsOptions = {
+        cert: fs.readFileSync(certPath),
+        key: fs.readFileSync(keyPath),
+      };
+
+      https.createServer(httpsOptions, app).listen(sslPort, config.host, () => {
+        console.log(`  🔒 HTTPS server running on https://${config.host}:${sslPort}`);
+      });
+    } else {
+      console.log('  ⚠️  No SSL certificates found - HTTPS disabled');
+    }
+
+    console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                 VENDOR HOURS TRACKER                          ║
 ╠═══════════════════════════════════════════════════════════════╣
-║  🚀 Server running on http://localhost:${config.port}                  ║
 ║  📊 Environment: ${config.nodeEnv.padEnd(41)}║
 ║  🗄️  Database: ${config.databasePath.padEnd(44)}║
 ║  ${config.useMockData ? '⚠️  DEMO MODE - Using simulated data' : '✅ Live Mode - Connected to Jira'}${' '.repeat(config.useMockData ? 25 : 23)}║
 ╚═══════════════════════════════════════════════════════════════╝
-      `);
+    `);
 
-      // Start automatic sync scheduler
-      startSyncScheduler();
-    });
+    // Start automatic sync scheduler
+    startSyncScheduler();
 
     // Graceful shutdown handler
     const gracefulShutdown = (signal: string) => {

@@ -24,8 +24,15 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install PM2 globally
-RUN npm install -g pm2
+# Install PM2 globally and openssl for cert generation
+RUN apk add --no-cache openssl && npm install -g pm2
+
+# Generate self-signed SSL certificate
+RUN mkdir -p /app/certs && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /app/certs/server.key \
+    -out /app/certs/server.crt \
+    -subj "/C=US/ST=Pennsylvania/L=Bethlehem/O=Moravian University/CN=localhost"
 
 # Copy package files and install production dependencies only
 COPY package*.json ./
@@ -51,8 +58,8 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV DATABASE_PATH=/app/data/vendor-tracker.db
 
-# Expose ports
-EXPOSE 3001
+# Expose ports (HTTP and HTTPS)
+EXPOSE 3001 3443
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

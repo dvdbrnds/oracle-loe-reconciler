@@ -26,6 +26,7 @@ const apps = [
     script: isDocker ? './server/dist/index.js' : 'dist/index.js',
     cwd: isDocker ? './' : './server',
     instances: 1,
+    exec_mode: 'fork',  // Explicitly use fork mode (not cluster) for HTTPS support
     autorestart: true,
     watch: false,
     max_memory_restart: '500M',

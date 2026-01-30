@@ -19,7 +19,7 @@ export const app = express();
 
 // Middleware
 app.use(cors({
-  origin: config.clientUrl,
+  origin: config.nodeEnv === 'production' ? true : config.clientUrl,
   credentials: true,
 }));
 app.use(express.json());

@@ -80,7 +80,7 @@ app.get('/api/debug/config', (req, res) => {
   });
 });
 
-// Debug endpoint to check date distribution in burnt_hours
+// Debug endpoint to check date distribution and priority values
 app.get('/api/debug/dates', (req, res) => {
   try {
     const db = getDb();
@@ -95,26 +95,26 @@ app.get('/api/debug/dates', (req, res) => {
       LIMIT 12
     `).all();
     
-    // Check loe_approved_at distribution in jira_tickets
-    const approvalDistribution = db.prepare(`
-      SELECT strftime('%Y-%m', loe_approved_at) as month, COUNT(*) as count
+    // Check priority values in jira_tickets
+    const priorityValues = db.prepare(`
+      SELECT priority, COUNT(*) as count
       FROM jira_tickets
-      WHERE is_mock_data = 0 AND loe_approved_at IS NOT NULL
-      GROUP BY strftime('%Y-%m', loe_approved_at)
-      ORDER BY month DESC
-      LIMIT 12
-    `).all();
-    
-    // Sample of burnt_hours with dates
-    const sampleBurntHours = db.prepare(`
-      SELECT ticket_key, work_date, hours, is_admin_overhead
-      FROM burnt_hours
       WHERE is_mock_data = 0
-      ORDER BY work_date DESC
-      LIMIT 10
+      GROUP BY priority
     `).all();
     
-    res.json({ dateDistribution, approvalDistribution, sampleBurntHours });
+    // Check the actual join result for Jan 2026
+    const joinedData = db.prepare(`
+      SELECT bh.ticket_key, bh.hours, bh.work_date, jt.priority, jt.summary
+      FROM burnt_hours bh
+      LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
+      WHERE bh.is_mock_data = 0 
+        AND bh.is_admin_overhead = 0
+        AND bh.ticket_key LIKE 'MOCS-%'
+      LIMIT 15
+    `).all();
+    
+    res.json({ dateDistribution, priorityValues, joinedData });
   } catch (error) {
     res.json({ error: String(error) });
   }

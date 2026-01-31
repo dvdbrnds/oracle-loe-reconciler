@@ -279,19 +279,24 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
               AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%'
             THEN bh.hours ELSE 0 END), 0) as hours_unapproved,
           -- Work type breakdown for stacked progress bar
+          -- Note: Use COALESCE to handle NULL module values
           COALESCE(SUM(CASE 
             WHEN bh.is_admin_overhead = 0
               AND jt.priority IN ('Critical', 'High', 'Highest', 'Urgent')
-              AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+              AND COALESCE(jt.module, '') NOT LIKE '%Payroll%' 
+              AND COALESCE(jt.summary, '') NOT LIKE '%Payroll%' 
+              AND COALESCE(jt.summary, '') NOT LIKE '%payroll%'
             THEN bh.hours ELSE 0 END), 0) as hours_urgent_priority,
           COALESCE(SUM(CASE 
             WHEN bh.is_admin_overhead = 0
-              AND (jt.module LIKE '%Payroll%' OR jt.summary LIKE '%Payroll%' OR jt.summary LIKE '%payroll%')
+              AND (COALESCE(jt.module, '') LIKE '%Payroll%' OR COALESCE(jt.summary, '') LIKE '%Payroll%' OR COALESCE(jt.summary, '') LIKE '%payroll%')
             THEN bh.hours ELSE 0 END), 0) as hours_payroll,
           COALESCE(SUM(CASE 
             WHEN bh.is_admin_overhead = 0
               AND (jt.priority IS NULL OR jt.priority NOT IN ('Critical', 'High', 'Highest', 'Urgent'))
-              AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+              AND COALESCE(jt.module, '') NOT LIKE '%Payroll%' 
+              AND COALESCE(jt.summary, '') NOT LIKE '%Payroll%' 
+              AND COALESCE(jt.summary, '') NOT LIKE '%payroll%'
             THEN bh.hours ELSE 0 END), 0) as hours_regular
         FROM burnt_hours bh
         LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
@@ -382,19 +387,24 @@ dashboardRouter.get('/budget-overview', (req, res, next) => {
             AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%'
           THEN bh.hours ELSE 0 END), 0) as hours_unapproved,
         -- Work type breakdown for stacked progress bar
+        -- Note: Use COALESCE to handle NULL module values
         COALESCE(SUM(CASE 
           WHEN bh.is_admin_overhead = 0
             AND jt.priority IN ('Critical', 'High', 'Highest', 'Urgent')
-            AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+            AND COALESCE(jt.module, '') NOT LIKE '%Payroll%' 
+            AND COALESCE(jt.summary, '') NOT LIKE '%Payroll%' 
+            AND COALESCE(jt.summary, '') NOT LIKE '%payroll%'
           THEN bh.hours ELSE 0 END), 0) as hours_urgent_priority,
         COALESCE(SUM(CASE 
           WHEN bh.is_admin_overhead = 0
-            AND (jt.module LIKE '%Payroll%' OR jt.summary LIKE '%Payroll%' OR jt.summary LIKE '%payroll%')
+            AND (COALESCE(jt.module, '') LIKE '%Payroll%' OR COALESCE(jt.summary, '') LIKE '%Payroll%' OR COALESCE(jt.summary, '') LIKE '%payroll%')
           THEN bh.hours ELSE 0 END), 0) as hours_payroll,
         COALESCE(SUM(CASE 
           WHEN bh.is_admin_overhead = 0
             AND (jt.priority IS NULL OR jt.priority NOT IN ('Critical', 'High', 'Highest', 'Urgent'))
-            AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+            AND COALESCE(jt.module, '') NOT LIKE '%Payroll%' 
+            AND COALESCE(jt.summary, '') NOT LIKE '%Payroll%' 
+            AND COALESCE(jt.summary, '') NOT LIKE '%payroll%'
           THEN bh.hours ELSE 0 END), 0) as hours_regular
       FROM burnt_hours bh
       LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key

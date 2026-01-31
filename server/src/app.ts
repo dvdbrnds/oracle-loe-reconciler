@@ -80,6 +80,23 @@ app.get('/api/debug/config', (req, res) => {
   });
 });
 
+// Debug endpoint to check jira_updated_at values
+app.get('/api/debug/updated-check', (req, res) => {
+  try {
+    const db = getDb();
+    const sample = db.prepare(`
+      SELECT key, jira_updated_at, jira_created_at, synced_at, assignee_name
+      FROM jira_tickets
+      WHERE is_mock_data = 0
+      ORDER BY synced_at DESC
+      LIMIT 10
+    `).all();
+    res.json({ sample });
+  } catch (error) {
+    res.json({ error: String(error) });
+  }
+});
+
 // Debug endpoint to run the exact dashboard work-type calculation
 app.get('/api/debug/dashboard-calc', (req, res) => {
   try {

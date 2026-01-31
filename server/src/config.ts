@@ -94,34 +94,39 @@ IlyFtwTWH+CduxpkpJU9H6dcLxc=`),
   sessionSecret: z.string().default('session-secret-change-in-production'),
 });
 
+// Helper to treat empty strings as undefined (so defaults apply)
+function envOrUndefined(value: string | undefined): string | undefined {
+  return value && value.trim() ? value : undefined;
+}
+
 function loadConfig() {
   const rawConfig = {
     nodeEnv: process.env.NODE_ENV,
     port: process.env.PORT,
     host: process.env.HOST,
-    clientUrl: process.env.CLIENT_URL,
+    clientUrl: envOrUndefined(process.env.CLIENT_URL),
     databasePath: process.env.DATABASE_PATH,
     jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
     sessionDurationHours: process.env.SESSION_DURATION_HOURS,
     useMockData: process.env.USE_MOCK_DATA,
-    jiraInstanceUrl: process.env.JIRA_INSTANCE_URL,
-    jiraApiEmail: process.env.JIRA_API_EMAIL,
-    jiraApiToken: process.env.JIRA_API_TOKEN,
-    jiraProjects: process.env.JIRA_PROJECTS,
+    jiraInstanceUrl: envOrUndefined(process.env.JIRA_INSTANCE_URL),
+    jiraApiEmail: envOrUndefined(process.env.JIRA_API_EMAIL),
+    jiraApiToken: envOrUndefined(process.env.JIRA_API_TOKEN),
+    jiraProjects: envOrUndefined(process.env.JIRA_PROJECTS),
     jiraSyncIntervalMinutes: process.env.JIRA_SYNC_INTERVAL_MINUTES,
-    jiraFieldApplication: process.env.JIRA_FIELD_APPLICATION,
-    jiraFieldModule: process.env.JIRA_FIELD_MODULE,
-    jiraFieldLoeHours: process.env.JIRA_FIELD_LOE_HOURS,
+    jiraFieldApplication: envOrUndefined(process.env.JIRA_FIELD_APPLICATION),
+    jiraFieldModule: envOrUndefined(process.env.JIRA_FIELD_MODULE),
+    jiraFieldLoeHours: envOrUndefined(process.env.JIRA_FIELD_LOE_HOURS),
     defaultMonthlyHours: process.env.DEFAULT_MONTHLY_HOURS,
-    googleChatWebhookUrl: process.env.GOOGLE_CHAT_WEBHOOK_URL,
-    slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
-    teamsWebhookUrl: process.env.TEAMS_WEBHOOK_URL,
+    googleChatWebhookUrl: envOrUndefined(process.env.GOOGLE_CHAT_WEBHOOK_URL),
+    slackWebhookUrl: envOrUndefined(process.env.SLACK_WEBHOOK_URL),
+    teamsWebhookUrl: envOrUndefined(process.env.TEAMS_WEBHOOK_URL),
     samlEnabled: process.env.SAML_ENABLED,
-    samlEntryPoint: process.env.SAML_ENTRY_POINT,
-    samlIssuer: process.env.SAML_ISSUER,
-    samlCallbackUrl: process.env.SAML_CALLBACK_URL,
-    samlCert: process.env.SAML_CERT,
-    sessionSecret: process.env.SESSION_SECRET,
+    samlEntryPoint: envOrUndefined(process.env.SAML_ENTRY_POINT),
+    samlIssuer: envOrUndefined(process.env.SAML_ISSUER),
+    samlCallbackUrl: envOrUndefined(process.env.SAML_CALLBACK_URL),
+    samlCert: envOrUndefined(process.env.SAML_CERT),
+    sessionSecret: envOrUndefined(process.env.SESSION_SECRET),
   };
 
   const result = configSchema.safeParse(rawConfig);

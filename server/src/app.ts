@@ -142,6 +142,50 @@ app.get('/api/debug/work-types', (req, res) => {
   }
 });
 
+// Debug endpoint to test Jira API directly
+app.get('/api/debug/jira-test', async (req, res) => {
+  try {
+    const baseUrl = (config.jiraInstanceUrl || '').replace(/\/$/, '');
+    const authHeader = 'Basic ' + Buffer.from(`${config.jiraApiEmail}:${config.jiraApiToken}`).toString('base64');
+    
+    // Test 1: Check /myself endpoint
+    const myselfUrl = `${baseUrl}/rest/api/3/myself`;
+    const myselfResponse = await fetch(myselfUrl, {
+      headers: { 'Authorization': authHeader, 'Accept': 'application/json' }
+    });
+    const myselfData = myselfResponse.ok ? await myselfResponse.json() : await myselfResponse.text();
+    
+    // Test 2: Search for MOCS issues
+    const searchUrl = `${baseUrl}/rest/api/3/search?jql=project=MOCS&maxResults=5&fields=key,summary,priority`;
+    const searchResponse = await fetch(searchUrl, {
+      headers: { 'Authorization': authHeader, 'Accept': 'application/json' }
+    });
+    const searchData = searchResponse.ok ? await searchResponse.json() : await searchResponse.text();
+    
+    res.json({
+      config: {
+        baseUrl,
+        email: config.jiraApiEmail ? `${config.jiraApiEmail.substring(0, 10)}...` : '(not set)',
+        tokenSet: !!config.jiraApiToken
+      },
+      myself: {
+        status: myselfResponse.status,
+        ok: myselfResponse.ok,
+        data: myselfData
+      },
+      search: {
+        url: searchUrl,
+        status: searchResponse.status,
+        ok: searchResponse.ok,
+        total: searchResponse.ok ? (searchData as any).total : null,
+        data: searchData
+      }
+    });
+  } catch (error) {
+    res.json({ error: String(error), stack: (error as Error).stack });
+  }
+});
+
 // API Routes
 app.use('/api/auth', authRouter);
 app.use('/api/auth/saml', samlRouter);

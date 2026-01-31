@@ -45,14 +45,17 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Capture startup time to verify deployments
+const SERVER_START_TIME = new Date().toISOString();
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
+    serverStartedAt: SERVER_START_TIME,
     useMockData: config.useMockData,
-    version: '1.0.0',
-    commit: 'ffccd9c'
+    version: '1.0.0'
   });
 });
 

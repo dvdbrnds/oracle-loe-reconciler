@@ -75,6 +75,56 @@ app.get('/api/debug/config', (req, res) => {
   });
 });
 
+// Debug endpoint to check work type breakdown data
+app.get('/api/debug/work-types', (req, res) => {
+  try {
+    const { getDb } = require('./db/database.js');
+    const db = getDb();
+    
+    // Check priority distribution
+    const priorities = db.prepare(`
+      SELECT jt.priority, COUNT(*) as count, SUM(bh.hours) as hours
+      FROM burnt_hours bh
+      LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
+      WHERE bh.is_mock_data = 0 AND bh.is_admin_overhead = 0 AND bh.ticket_key LIKE 'MOCS-%'
+      GROUP BY jt.priority
+    `).all();
+    
+    // Check for payroll tickets
+    const payroll = db.prepare(`
+      SELECT COUNT(*) as count, SUM(bh.hours) as hours
+      FROM burnt_hours bh
+      LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
+      WHERE bh.is_mock_data = 0 
+        AND (jt.summary LIKE '%Payroll%' OR jt.summary LIKE '%payroll%' OR jt.module LIKE '%Payroll%')
+    `).get();
+    
+    // Check total burnt hours
+    const totals = db.prepare(`
+      SELECT 
+        COUNT(*) as total_records,
+        SUM(hours) as total_hours,
+        SUM(CASE WHEN is_admin_overhead = 1 THEN hours ELSE 0 END) as admin_hours,
+        COUNT(DISTINCT ticket_key) as unique_tickets
+      FROM burnt_hours WHERE is_mock_data = 0
+    `).get();
+    
+    // Check if burnt_hours match jira_tickets
+    const matching = db.prepare(`
+      SELECT 
+        COUNT(*) as with_match,
+        SUM(bh.hours) as hours_with_match
+      FROM burnt_hours bh
+      INNER JOIN jira_tickets jt ON bh.ticket_key = jt.key
+      WHERE bh.is_mock_data = 0 AND bh.is_admin_overhead = 0
+    `).get();
+    
+    res.json({ priorities, payroll, totals, matching });
+  } catch (error) {
+    res.json({ error: String(error) });
+  }
+});
+
 // API Routes
 app.use('/api/auth', authRouter);
 app.use('/api/auth/saml', samlRouter);

@@ -136,7 +136,26 @@ app.get('/api/debug/work-types', (req, res) => {
       LIMIT 10
     `).all();
     
-    res.json({ priorities, payroll, totals, matching, projectStats, unmatchedKeys });
+    // Compare ticket keys between burnt_hours and jira_tickets for MOCS
+    const burntMocsKeys = db.prepare(`
+      SELECT DISTINCT ticket_key FROM burnt_hours 
+      WHERE ticket_key LIKE 'MOCS-%' AND is_mock_data = 0
+      ORDER BY ticket_key
+    `).all();
+    
+    const jiraMocsKeys = db.prepare(`
+      SELECT DISTINCT key FROM jira_tickets 
+      WHERE key LIKE 'MOCS-%' AND is_mock_data = 0
+      ORDER BY key
+    `).all();
+    
+    res.json({ 
+      priorities, payroll, totals, matching, projectStats, unmatchedKeys,
+      mocsComparison: {
+        inBurntHours: burntMocsKeys,
+        inJira: jiraMocsKeys
+      }
+    });
   } catch (error) {
     res.json({ error: String(error) });
   }

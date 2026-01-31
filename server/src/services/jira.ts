@@ -122,7 +122,7 @@ class JiraService {
     }
 
     const allIssues: JiraIssue[] = [];
-    let nextPageToken: string | undefined;
+    let startAt = 0;
     const maxResults = 100;
 
     // Fields to fetch - standard + custom fields
@@ -142,15 +142,15 @@ class JiraService {
       config.jiraFieldLoeHours,
     ].join(',');
 
-    do {
-      const url = new URL(`${this.baseUrl}/rest/api/3/search/jql`);
-      url.searchParams.set('jql', `project = ${projectKey} ORDER BY updated DESC`);
+    // Remove trailing slash from baseUrl if present
+    const baseUrl = this.baseUrl.replace(/\/$/, '');
+
+    while (true) {
+      const url = new URL(`${baseUrl}/rest/api/3/search`);
+      url.searchParams.set('jql', `project = ${projectKey} ORDER BY created ASC`);
+      url.searchParams.set('startAt', startAt.toString());
       url.searchParams.set('maxResults', maxResults.toString());
       url.searchParams.set('fields', fields);
-      
-      if (nextPageToken) {
-        url.searchParams.set('nextPageToken', nextPageToken);
-      }
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -164,16 +164,25 @@ class JiraService {
         throw new Error(`Failed to fetch issues for ${projectKey}: HTTP ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json() as JiraSearchResponse;
-      allIssues.push(...data.issues);
-      nextPageToken = data.nextPageToken;
+      const data = await response.json() as any;
+      const issues = data.issues || [];
+      allIssues.push(...issues);
+      
+      console.log(`     Fetched ${issues.length} issues for ${projectKey} (total: ${allIssues.length}/${data.total || '?'})`);
+
+      // Check if we've fetched all issues
+      if (issues.length < maxResults || allIssues.length >= (data.total || Infinity)) {
+        break;
+      }
+
+      startAt += maxResults;
 
       // Safety check - stop after 10000 issues
       if (allIssues.length >= 10000) {
         console.warn(`⚠️  Reached 10000 issue limit for project ${projectKey}`);
         break;
       }
-    } while (nextPageToken);
+    }
 
     return allIssues;
   }

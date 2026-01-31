@@ -222,7 +222,7 @@ dashboardRouter.get('/ticket-overview', (req, res, next) => {
         jp.phase,
         jt.reporter_name,
         jt.assignee_name,
-        datetime(jt.jira_updated_at) as updated_at
+        jt.jira_updated_at
       FROM jira_tickets jt
       JOIN jira_projects jp ON jt.project_key = jp.key
       WHERE jt.is_mock_data = 0

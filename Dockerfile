@@ -58,8 +58,8 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV DATABASE_PATH=/app/data/vendor-tracker.db
 
-# Expose ports (HTTP and HTTPS)
-EXPOSE 3001 3443
+# Expose port (Coolify handles SSL termination)
+EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

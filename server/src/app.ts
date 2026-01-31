@@ -162,6 +162,72 @@ app.get('/api/debug/work-types', (req, res) => {
   }
 });
 
+// Debug endpoint to manually sync MOCS and show results
+app.get('/api/debug/sync-mocs', async (req, res) => {
+  try {
+    const { jiraService } = await import('./services/jira.js');
+    const db = getDb();
+    
+    if (!jiraService.isConfigured()) {
+      res.json({ error: 'Jira not configured' });
+      return;
+    }
+    
+    // Fetch from Jira
+    console.log('🧪 Fetching MOCS issues...');
+    const issues = await jiraService.fetchProjectIssues('MOCS');
+    console.log(`🧪 Got ${issues.length} issues from Jira`);
+    
+    // Count before
+    const beforeCount = db.prepare(`SELECT COUNT(*) as count FROM jira_tickets WHERE project_key = 'MOCS' AND is_mock_data = 0`).get() as { count: number };
+    
+    // Insert each one
+    let inserted = 0;
+    let errors: string[] = [];
+    
+    for (const issue of issues) {
+      try {
+        const transformed = jiraService.transformIssue(issue);
+        db.prepare(`
+          INSERT INTO jira_tickets (key, project_key, summary, priority, status, is_mock_data, synced_at)
+          VALUES (?, ?, ?, ?, ?, 0, datetime('now'))
+          ON CONFLICT(key) DO UPDATE SET
+            summary = excluded.summary,
+            priority = excluded.priority,
+            status = excluded.status,
+            synced_at = datetime('now')
+        `).run(
+          transformed.key,
+          transformed.project_key,
+          transformed.summary,
+          transformed.priority,
+          transformed.status
+        );
+        inserted++;
+      } catch (e) {
+        errors.push(`${issue.key}: ${e}`);
+      }
+    }
+    
+    // Count after
+    const afterCount = db.prepare(`SELECT COUNT(*) as count FROM jira_tickets WHERE project_key = 'MOCS' AND is_mock_data = 0`).get() as { count: number };
+    
+    // Get sample of what's in DB
+    const sample = db.prepare(`SELECT key, summary, priority FROM jira_tickets WHERE project_key = 'MOCS' AND is_mock_data = 0 ORDER BY key LIMIT 10`).all();
+    
+    res.json({
+      fetchedFromJira: issues.length,
+      beforeCount: beforeCount.count,
+      insertedCount: inserted,
+      afterCount: afterCount.count,
+      errors: errors.slice(0, 5),
+      sampleInDb: sample
+    });
+  } catch (error) {
+    res.json({ error: String(error), stack: (error as Error).stack });
+  }
+});
+
 // Debug endpoint to test jiraService.fetchProjectIssues (what sync actually uses)
 app.get('/api/debug/jira-service-test', async (req, res) => {
   try {

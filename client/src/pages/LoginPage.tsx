@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../components/ui/toaster';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Shield } from 'lucide-react';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { login, register, loginWithOkta } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +16,25 @@ export function LoginPage() {
     password: '',
     name: '',
   });
+
+  // Handle SAML error messages
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error) {
+      const errorMessages: Record<string, string> = {
+        saml_failed: 'Okta login failed. Please try again.',
+        no_email: 'No email address received from Okta.',
+        saml_callback_failed: 'Authentication callback failed.',
+      };
+      toast({
+        title: 'Login Error',
+        description: errorMessages[error] || 'An error occurred during login.',
+        variant: 'destructive',
+      });
+      // Clear the error from URL
+      window.history.replaceState({}, document.title, '/login');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +78,29 @@ export function LoginPage() {
           <h2 className="text-xl font-semibold mb-6">
             {isRegister ? 'Create an account' : 'Sign in to your account'}
           </h2>
+
+          {/* Okta SSO Button */}
+          {!isRegister && (
+            <>
+              <button
+                type="button"
+                onClick={loginWithOkta}
+                className="w-full flex items-center justify-center gap-2 bg-[#00297A] text-white py-3 rounded-lg font-medium hover:bg-[#001f5c] transition-colors mb-4"
+              >
+                <Shield size={20} />
+                Sign in with Moravian SSO
+              </button>
+              
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+                </div>
+              </div>
+            </>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegister && (
@@ -135,14 +178,15 @@ export function LoginPage() {
             </button>
           </div>
 
-          {/* Demo credentials hint */}
-          <div className="mt-6 p-4 bg-yellow-50 rounded-lg">
-            <p className="text-sm text-yellow-800 font-medium">Demo Credentials</p>
-            <p className="text-xs text-yellow-700 mt-1">
-              Email: admin@example.com<br />
-              Password: password123
-            </p>
-          </div>
+          {/* Info about login options */}
+          {!isRegister && (
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium">Moravian Users</p>
+              <p className="text-xs text-blue-700 mt-1">
+                Use "Sign in with Moravian SSO" above to log in with your Moravian credentials.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

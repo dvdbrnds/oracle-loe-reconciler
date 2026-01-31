@@ -65,6 +65,33 @@ const configSchema = z.object({
   googleChatWebhookUrl: z.string().optional(),
   slackWebhookUrl: z.string().optional(),
   teamsWebhookUrl: z.string().optional(),
+
+  // SAML/Okta
+  samlEnabled: z.preprocess(
+    (val) => val === 'true' || val === true,
+    z.boolean().default(true)
+  ),
+  samlEntryPoint: z.string().default('https://login.moravian.edu/app/moravian_dsloe_1/exk1i8bk3bpXbQbej0x8/sso/saml'),
+  samlIssuer: z.string().default('http://www.okta.com/exk1i8bk3bpXbQbej0x8'),
+  samlCallbackUrl: z.string().default('https://loe.moravian.edu/api/auth/saml/callback'),
+  samlCert: z.string().default(`MIIDoDCCAoigAwIBAgIGAZwUG3w4MA0GCSqGSIb3DQEBCwUAMIGQMQswCQYDVQQGEwJVUzETMBEG
+A1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwET2t0YTEU
+MBIGA1UECwwLU1NPUHJvdmlkZXIxETAPBgNVBAMMCG1vcmF2aWFuMRwwGgYJKoZIhvcNAQkBFg1p
+bmZvQG9rdGEuY29tMB4XDTI2MDEzMTEyNTAxMVoXDTM2MDEzMTEyNTExMVowgZAxCzAJBgNVBAYT
+AlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRYwFAYDVQQHDA1TYW4gRnJhbmNpc2NvMQ0wCwYDVQQK
+DARPa3RhMRQwEgYDVQQLDAtTU09Qcm92aWRlcjERMA8GA1UEAwwIbW9yYXZpYW4xHDAaBgkqhkiG
+9w0BCQEWDWluZm9Ab2t0YS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCtR/XG
+ZpjsipwfCGZ/HA7DXYTJeEOQMG82nSQfqvNA82vXbH/7kw3WRVbCURkAeXHtWd4ugp0LGwLZKujx
+lp3O7uxwY8b4NMVNxaFN81PmlEReRrAh5J3mmYYaXfcxyQy445GcCbuOGLJA7Iser0AXRJ9/KVD/
+eOmODc6BuhTbl5ufcM6uo6WEMe23OCNGxOfXI2SFn1RFfJEywJLqO0mGNdrxWhdxzNYdUq4mX0HW
+gEbjhskNwWODfMoV24KEVJYZkkRzOTYOFJ4yiwoCM+3qJ1YbfxCQgdg6zkv6lLdjxwnvdmIj+trk
+QeqKlnuZY0n0n1nVldO9JtgfvXpITpTHAgMBAAEwDQYJKoZIhvcNAQELBQADggEBADoDF5vuYhYu
+/kTml35znVv6i7B3zdY2sHfGVrlL7YTzbwd4kr0P1aI0FaFo8fCdyik7pnInzO33bLZ8APhosOav
+OGXtDA+Dny4+uru/Vgc2gZnEMnoc/6KUcB3qP7WyCV4n48g78qhLNxAj2V4NBvaBN/hb5LnJf0hs
+ce1dksgox0jKCTJ6AAIlar/J+FKOK0pdWbEDgHAHYbxQNmU9nAcUWtPhyqZVu2jPxCpzxrqtxGxN
+RmgKWbPkVzz/SYEUZJphvkUmgN+bMxDNSMeA3s6+L+udEA60ls022Aa3zLg+4sGLPumntAKbbYpK
+IlyFtwTWH+CduxpkpJU9H6dcLxc=`),
+  sessionSecret: z.string().default('session-secret-change-in-production'),
 });
 
 function loadConfig() {
@@ -89,6 +116,12 @@ function loadConfig() {
     googleChatWebhookUrl: process.env.GOOGLE_CHAT_WEBHOOK_URL,
     slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
     teamsWebhookUrl: process.env.TEAMS_WEBHOOK_URL,
+    samlEnabled: process.env.SAML_ENABLED,
+    samlEntryPoint: process.env.SAML_ENTRY_POINT,
+    samlIssuer: process.env.SAML_ISSUER,
+    samlCallbackUrl: process.env.SAML_CALLBACK_URL,
+    samlCert: process.env.SAML_CERT,
+    sessionSecret: process.env.SESSION_SECRET,
   };
 
   const result = configSchema.safeParse(rawConfig);

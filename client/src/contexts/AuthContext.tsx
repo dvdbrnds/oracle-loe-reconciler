@@ -14,6 +14,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
+  loginWithOkta: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,6 +24,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for token in URL (from SAML callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+    
+    if (tokenFromUrl) {
+      // Store the token and clean up URL
+      localStorage.setItem('token', tokenFromUrl);
+      api.setToken(tokenFromUrl);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Fetch user info
+      api.get<{ user: User }>('/auth/me')
+        .then(data => setUser(data.user))
+        .catch(() => {
+          localStorage.removeItem('token');
+          api.setToken(null);
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
+    
     // Check for existing session
     const token = localStorage.getItem('token');
     if (token) {
@@ -63,8 +85,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await login(email, password);
   };
 
+  const loginWithOkta = () => {
+    // Redirect to SAML login endpoint
+    window.location.href = '/api/auth/saml/login';
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register, loginWithOkta }}>
       {children}
     </AuthContext.Provider>
   );

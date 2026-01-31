@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import session from 'express-session';
+import passport from 'passport';
 import { config } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
@@ -11,6 +13,7 @@ import { importRouter } from './routes/import.js';
 import { complianceRouter } from './routes/compliance.js';
 import { adminRouter } from './routes/admin.js';
 import { syncRouter } from './routes/sync.js';
+import { samlRouter } from './routes/saml.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,6 +28,22 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Session middleware (required for SAML)
+app.use(session({
+  secret: config.sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: config.nodeEnv === 'production',
+    httpOnly: true,
+    maxAge: config.sessionDurationHours * 60 * 60 * 1000,
+  },
+}));
+
+// Passport initialization
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -37,6 +56,7 @@ app.get('/api/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRouter);
+app.use('/api/auth/saml', samlRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/tickets', ticketsRouter);
 app.use('/api/import', importRouter);

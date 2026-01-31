@@ -12,7 +12,8 @@ export const samlRouter = Router();
 const samlStrategy = new SamlStrategy(
   {
     entryPoint: config.samlEntryPoint,
-    issuer: 'https://loe.moravian.edu',
+    issuer: 'https://loe.moravian.edu/',
+    audience: 'https://loe.moravian.edu/',
     callbackUrl: config.samlCallbackUrl,
     idpCert: config.samlCert,
     wantAssertionsSigned: false,

@@ -146,7 +146,9 @@ class JiraService {
     // Remove trailing slash from baseUrl if present
     const baseUrl = this.baseUrl.replace(/\/$/, '');
 
+    let pageNum = 0;
     do {
+      pageNum++;
       const url = new URL(`${baseUrl}/rest/api/3/search/jql`);
       url.searchParams.set('jql', `project = ${projectKey} ORDER BY created ASC`);
       url.searchParams.set('maxResults', maxResults.toString());
@@ -156,7 +158,7 @@ class JiraService {
         url.searchParams.set('nextPageToken', nextPageToken);
       }
 
-      console.log(`   📡 Fetching: ${url.toString().substring(0, 100)}...`);
+      console.log(`   📡 [Page ${pageNum}] Fetching ${projectKey}...`);
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -167,20 +169,29 @@ class JiraService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`   ❌ Error: ${response.status} - ${errorText}`);
+        console.error(`   ❌ [Page ${pageNum}] Error: ${response.status} - ${errorText}`);
         throw new Error(`Failed to fetch issues for ${projectKey}: HTTP ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json() as JiraSearchResponse;
+      const rawData = await response.json();
+      const data = rawData as JiraSearchResponse;
       const issues = data.issues || [];
       allIssues.push(...issues);
-      nextPageToken = data.nextPageToken;
       
-      console.log(`   ✅ Fetched ${issues.length} issues for ${projectKey} (total so far: ${allIssues.length}, hasMore: ${!!nextPageToken})`);
+      // Log the raw nextPageToken to debug
+      console.log(`   ✅ [Page ${pageNum}] Got ${issues.length} issues (total: ${allIssues.length}), isLast: ${data.isLast}, nextPageToken: ${data.nextPageToken ? 'present' : 'null'}`);
+      
+      nextPageToken = data.nextPageToken;
 
       // Safety check - stop after 10000 issues
       if (allIssues.length >= 10000) {
         console.warn(`⚠️  Reached 10000 issue limit for project ${projectKey}`);
+        break;
+      }
+      
+      // Safety check - max 100 pages
+      if (pageNum >= 100) {
+        console.warn(`⚠️  Reached 100 page limit for project ${projectKey}`);
         break;
       }
     } while (nextPageToken);

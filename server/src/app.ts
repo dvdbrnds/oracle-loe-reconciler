@@ -51,7 +51,8 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     useMockData: config.useMockData,
-    version: '1.0.0'
+    version: '1.0.0',
+    commit: '6997869'
   });
 });
 

@@ -94,34 +94,40 @@ IlyFtwTWH+CduxpkpJU9H6dcLxc=`),
   sessionSecret: z.string().default('session-secret-change-in-production'),
 });
 
+// Helper: treat empty strings as undefined so zod defaults apply
+const env = (key: string) => {
+  const val = process.env[key];
+  return val && val.trim() ? val : undefined;
+};
+
 function loadConfig() {
   const rawConfig = {
     nodeEnv: process.env.NODE_ENV,
     port: process.env.PORT,
     host: process.env.HOST,
-    clientUrl: process.env.CLIENT_URL,
+    clientUrl: env('CLIENT_URL'),
     databasePath: process.env.DATABASE_PATH,
     jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
     sessionDurationHours: process.env.SESSION_DURATION_HOURS,
     useMockData: process.env.USE_MOCK_DATA,
-    jiraInstanceUrl: process.env.JIRA_INSTANCE_URL,
-    jiraApiEmail: process.env.JIRA_API_EMAIL,
-    jiraApiToken: process.env.JIRA_API_TOKEN,
-    jiraProjects: process.env.JIRA_PROJECTS,
+    jiraInstanceUrl: env('JIRA_INSTANCE_URL'),
+    jiraApiEmail: env('JIRA_API_EMAIL'),
+    jiraApiToken: env('JIRA_API_TOKEN'),
+    jiraProjects: env('JIRA_PROJECTS'),
     jiraSyncIntervalMinutes: process.env.JIRA_SYNC_INTERVAL_MINUTES,
-    jiraFieldApplication: process.env.JIRA_FIELD_APPLICATION,
-    jiraFieldModule: process.env.JIRA_FIELD_MODULE,
-    jiraFieldLoeHours: process.env.JIRA_FIELD_LOE_HOURS,
+    jiraFieldApplication: env('JIRA_FIELD_APPLICATION'),
+    jiraFieldModule: env('JIRA_FIELD_MODULE'),
+    jiraFieldLoeHours: env('JIRA_FIELD_LOE_HOURS'),
     defaultMonthlyHours: process.env.DEFAULT_MONTHLY_HOURS,
-    googleChatWebhookUrl: process.env.GOOGLE_CHAT_WEBHOOK_URL,
-    slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
-    teamsWebhookUrl: process.env.TEAMS_WEBHOOK_URL,
+    googleChatWebhookUrl: env('GOOGLE_CHAT_WEBHOOK_URL'),
+    slackWebhookUrl: env('SLACK_WEBHOOK_URL'),
+    teamsWebhookUrl: env('TEAMS_WEBHOOK_URL'),
     samlEnabled: process.env.SAML_ENABLED,
-    samlEntryPoint: process.env.SAML_ENTRY_POINT,
-    samlIssuer: process.env.SAML_ISSUER,
-    samlCallbackUrl: process.env.SAML_CALLBACK_URL,
-    samlCert: process.env.SAML_CERT,
-    sessionSecret: process.env.SESSION_SECRET,
+    samlEntryPoint: env('SAML_ENTRY_POINT'),
+    samlIssuer: env('SAML_ISSUER'),
+    samlCallbackUrl: env('SAML_CALLBACK_URL'),
+    samlCert: env('SAML_CERT'),
+    sessionSecret: env('SESSION_SECRET'),
   };
 
   const result = configSchema.safeParse(rawConfig);

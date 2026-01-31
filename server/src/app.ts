@@ -54,6 +54,27 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Debug endpoint to check Jira config (temporary - remove after debugging)
+app.get('/api/debug/config', (req, res) => {
+  res.json({
+    nodeEnv: config.nodeEnv,
+    useMockData: config.useMockData,
+    jiraConfigured: !!(config.jiraInstanceUrl && config.jiraApiEmail && config.jiraApiToken && !config.useMockData),
+    jiraInstanceUrl: config.jiraInstanceUrl || '(not set)',
+    jiraApiEmail: config.jiraApiEmail ? `${config.jiraApiEmail.substring(0, 3)}...` : '(not set)',
+    jiraApiToken: config.jiraApiToken ? '(set - hidden)' : '(not set)',
+    jiraProjects: config.jiraProjects,
+    samlEnabled: config.samlEnabled,
+    // Show raw env vars for debugging
+    envVars: {
+      USE_MOCK_DATA: process.env.USE_MOCK_DATA || '(not set)',
+      JIRA_INSTANCE_URL: process.env.JIRA_INSTANCE_URL || '(not set)',
+      JIRA_API_EMAIL: process.env.JIRA_API_EMAIL ? `${process.env.JIRA_API_EMAIL.substring(0, 3)}...` : '(not set)',
+      JIRA_API_TOKEN: process.env.JIRA_API_TOKEN ? '(set)' : '(not set)',
+    }
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRouter);
 app.use('/api/auth/saml', samlRouter);

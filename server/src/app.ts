@@ -80,6 +80,46 @@ app.get('/api/debug/config', (req, res) => {
   });
 });
 
+// Debug endpoint to check date distribution in burnt_hours
+app.get('/api/debug/dates', (req, res) => {
+  try {
+    const db = getDb();
+    
+    // Check work_date distribution
+    const dateDistribution = db.prepare(`
+      SELECT strftime('%Y-%m', work_date) as month, COUNT(*) as count, SUM(hours) as hours
+      FROM burnt_hours
+      WHERE is_mock_data = 0
+      GROUP BY strftime('%Y-%m', work_date)
+      ORDER BY month DESC
+      LIMIT 12
+    `).all();
+    
+    // Check loe_approved_at distribution in jira_tickets
+    const approvalDistribution = db.prepare(`
+      SELECT strftime('%Y-%m', loe_approved_at) as month, COUNT(*) as count
+      FROM jira_tickets
+      WHERE is_mock_data = 0 AND loe_approved_at IS NOT NULL
+      GROUP BY strftime('%Y-%m', loe_approved_at)
+      ORDER BY month DESC
+      LIMIT 12
+    `).all();
+    
+    // Sample of burnt_hours with dates
+    const sampleBurntHours = db.prepare(`
+      SELECT ticket_key, work_date, hours, is_admin_overhead
+      FROM burnt_hours
+      WHERE is_mock_data = 0
+      ORDER BY work_date DESC
+      LIMIT 10
+    `).all();
+    
+    res.json({ dateDistribution, approvalDistribution, sampleBurntHours });
+  } catch (error) {
+    res.json({ error: String(error) });
+  }
+});
+
 // Debug endpoint to check work type breakdown data
 app.get('/api/debug/work-types', (req, res) => {
   try {

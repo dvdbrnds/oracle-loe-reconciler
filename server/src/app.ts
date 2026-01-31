@@ -161,6 +161,59 @@ app.get('/api/debug/work-types', (req, res) => {
   }
 });
 
+// Debug endpoint to fetch ALL MOCS tickets and show pagination
+app.get('/api/debug/jira-mocs', async (req, res) => {
+  try {
+    const baseUrl = (config.jiraInstanceUrl || '').replace(/\/$/, '');
+    const authHeader = 'Basic ' + Buffer.from(`${config.jiraApiEmail}:${config.jiraApiToken}`).toString('base64');
+    
+    const allIssues: any[] = [];
+    let nextPageToken: string | undefined;
+    let pageCount = 0;
+    const maxResults = 50;
+    
+    do {
+      pageCount++;
+      const url = new URL(`${baseUrl}/rest/api/3/search/jql`);
+      url.searchParams.set('jql', 'project = MOCS ORDER BY created ASC');
+      url.searchParams.set('maxResults', maxResults.toString());
+      url.searchParams.set('fields', 'key,summary,priority');
+      if (nextPageToken) {
+        url.searchParams.set('nextPageToken', nextPageToken);
+      }
+      
+      const response = await fetch(url.toString(), {
+        headers: { 'Authorization': authHeader, 'Accept': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        res.json({ error: `Page ${pageCount} failed: ${response.status} - ${errorText}` });
+        return;
+      }
+      
+      const data = await response.json() as any;
+      allIssues.push(...(data.issues || []));
+      nextPageToken = data.nextPageToken;
+      
+      // Safety limit
+      if (pageCount >= 20) break;
+    } while (nextPageToken);
+    
+    res.json({
+      totalFetched: allIssues.length,
+      pagesUsed: pageCount,
+      tickets: allIssues.map((i: any) => ({
+        key: i.key,
+        summary: i.fields?.summary?.substring(0, 50),
+        priority: i.fields?.priority?.name
+      }))
+    });
+  } catch (error) {
+    res.json({ error: String(error) });
+  }
+});
+
 // Debug endpoint to test Jira API directly
 app.get('/api/debug/jira-test', async (req, res) => {
   try {

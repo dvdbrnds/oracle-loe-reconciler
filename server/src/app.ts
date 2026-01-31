@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import session from 'express-session';
 import passport from 'passport';
 import { config } from './config.js';
+import { getDb } from './db/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
 import { dashboardRouter } from './routes/dashboard.js';
@@ -78,7 +79,6 @@ app.get('/api/debug/config', (req, res) => {
 // Debug endpoint to check work type breakdown data
 app.get('/api/debug/work-types', (req, res) => {
   try {
-    const { getDb } = require('./db/database.js');
     const db = getDb();
     
     // Check priority distribution

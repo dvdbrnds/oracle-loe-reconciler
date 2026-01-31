@@ -100,61 +100,31 @@ syncRouter.post('/jira', requireAdmin, async (req, res, next) => {
           VALUES (?, ?, ?, 0)
         `).run(projectKey, projectKey, getProjectPhase(projectKey));
 
-        // Upsert each issue - note: loe_approved_at is handled separately based on status change
+        // Simplified upsert - insert core fields, update on conflict
         const upsertStmt = db.prepare(`
           INSERT INTO jira_tickets (
-            key, project_key, summary, application, module, priority, status,
-            loe_hours, reporter_email, reporter_name, assignee_email, assignee_name,
-            jira_created_at, jira_updated_at, is_mock_data, synced_at, loe_approved_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'), ?)
+            key, project_key, summary, priority, status, is_mock_data, synced_at
+          ) VALUES (?, ?, ?, ?, ?, 0, datetime('now'))
           ON CONFLICT(key) DO UPDATE SET
             summary = excluded.summary,
-            application = excluded.application,
-            module = excluded.module,
             priority = excluded.priority,
             status = excluded.status,
-            loe_hours = excluded.loe_hours,
-            reporter_email = excluded.reporter_email,
-            reporter_name = excluded.reporter_name,
-            assignee_email = excluded.assignee_email,
-            assignee_name = excluded.assignee_name,
-            jira_updated_at = excluded.jira_updated_at,
-            synced_at = datetime('now'),
-            loe_approved_at = CASE 
-              WHEN excluded.status = 'LOE Approved' AND (jira_tickets.status != 'LOE Approved' OR jira_tickets.loe_approved_at IS NULL)
-              THEN datetime('now')
-              WHEN excluded.status != 'LOE Approved'
-              THEN NULL
-              ELSE jira_tickets.loe_approved_at
-            END
+            synced_at = datetime('now')
         `);
 
         for (const issue of issues) {
           try {
             const transformed = jiraService.transformIssue(issue);
             
-            // Check if ticket exists and get current status
-            const existing = db.prepare('SELECT key, status, loe_approved_at FROM jira_tickets WHERE key = ?').get(transformed.key) as { key: string; status: string; loe_approved_at: string | null } | undefined;
-            
-            // Determine loe_approved_at for new tickets
-            const loeApprovedAt = transformed.status === 'LOE Approved' ? new Date().toISOString() : null;
+            // Check if ticket exists
+            const existing = db.prepare('SELECT key FROM jira_tickets WHERE key = ?').get(transformed.key);
             
             upsertStmt.run(
               transformed.key,
               transformed.project_key,
               transformed.summary,
-              transformed.application,
-              transformed.module,
               transformed.priority,
-              transformed.status,
-              transformed.loe_hours,
-              transformed.reporter_email,
-              transformed.reporter_name,
-              transformed.assignee_email,
-              transformed.assignee_name,
-              transformed.jira_created_at,
-              transformed.jira_updated_at,
-              loeApprovedAt
+              transformed.status
             );
 
             result.ticketsSynced++;
@@ -165,6 +135,7 @@ syncRouter.post('/jira', requireAdmin, async (req, res, next) => {
             }
           } catch (issueError) {
             result.errors.push(`Failed to sync ${issue.key}: ${issueError}`);
+            console.error(`     ❌ Error syncing ${issue.key}:`, issueError);
           }
         }
 

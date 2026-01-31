@@ -100,15 +100,16 @@ syncRouter.post('/jira', requireAdmin, async (req, res, next) => {
           VALUES (?, ?, ?, 0)
         `).run(projectKey, projectKey, getProjectPhase(projectKey));
 
-        // Simplified upsert - insert core fields, update on conflict
+        // Upsert with core fields including updated timestamp
         const upsertStmt = db.prepare(`
           INSERT INTO jira_tickets (
-            key, project_key, summary, priority, status, is_mock_data, synced_at
-          ) VALUES (?, ?, ?, ?, ?, 0, datetime('now'))
+            key, project_key, summary, priority, status, jira_updated_at, is_mock_data, synced_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 0, datetime('now'))
           ON CONFLICT(key) DO UPDATE SET
             summary = excluded.summary,
             priority = excluded.priority,
             status = excluded.status,
+            jira_updated_at = excluded.jira_updated_at,
             synced_at = datetime('now')
         `);
 
@@ -124,7 +125,8 @@ syncRouter.post('/jira', requireAdmin, async (req, res, next) => {
               transformed.project_key,
               transformed.summary,
               transformed.priority,
-              transformed.status
+              transformed.status,
+              transformed.jira_updated_at
             );
 
             result.ticketsSynced++;

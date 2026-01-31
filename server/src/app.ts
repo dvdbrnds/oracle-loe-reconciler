@@ -162,6 +162,35 @@ app.get('/api/debug/work-types', (req, res) => {
   }
 });
 
+// Debug endpoint to test jiraService.fetchProjectIssues (what sync actually uses)
+app.get('/api/debug/jira-service-test', async (req, res) => {
+  try {
+    const { jiraService } = await import('./services/jira.js');
+    
+    if (!jiraService.isConfigured()) {
+      res.json({ error: 'Jira not configured' });
+      return;
+    }
+    
+    console.log('🧪 Testing jiraService.fetchProjectIssues for MOCS...');
+    const issues = await jiraService.fetchProjectIssues('MOCS');
+    console.log(`🧪 jiraService returned ${issues.length} issues`);
+    
+    res.json({
+      source: 'jiraService.fetchProjectIssues',
+      totalFetched: issues.length,
+      tickets: issues.slice(0, 10).map(i => ({
+        key: i.key,
+        summary: i.fields?.summary?.substring(0, 40),
+        priority: i.fields?.priority?.name
+      })),
+      message: issues.length > 10 ? `...and ${issues.length - 10} more` : undefined
+    });
+  } catch (error) {
+    res.json({ error: String(error), stack: (error as Error).stack });
+  }
+});
+
 // Debug endpoint to fetch ALL MOCS tickets and show pagination
 app.get('/api/debug/jira-mocs', async (req, res) => {
   try {

@@ -80,6 +80,52 @@ app.get('/api/debug/config', (req, res) => {
   });
 });
 
+// Debug endpoint to run the exact dashboard work-type calculation
+app.get('/api/debug/dashboard-calc', (req, res) => {
+  try {
+    const db = getDb();
+    const year = 2026;
+    const month = 1;
+    
+    const result = db.prepare(`
+      SELECT 
+        COALESCE(SUM(bh.hours), 0) as total_burnt,
+        COALESCE(SUM(CASE WHEN bh.is_admin_overhead = 1 THEN bh.hours ELSE 0 END), 0) as admin_overhead,
+        COALESCE(SUM(CASE 
+          WHEN bh.is_admin_overhead = 0
+            AND jt.priority IN ('Critical', 'High', 'Highest', 'Urgent')
+            AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+          THEN bh.hours ELSE 0 END), 0) as hours_urgent_priority,
+        COALESCE(SUM(CASE 
+          WHEN bh.is_admin_overhead = 0
+            AND (jt.module LIKE '%Payroll%' OR jt.summary LIKE '%Payroll%' OR jt.summary LIKE '%payroll%')
+          THEN bh.hours ELSE 0 END), 0) as hours_payroll,
+        COALESCE(SUM(CASE 
+          WHEN bh.is_admin_overhead = 0
+            AND (jt.priority IS NULL OR jt.priority NOT IN ('Critical', 'High', 'Highest', 'Urgent'))
+            AND (jt.module NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%Payroll%' AND jt.summary NOT LIKE '%payroll%')
+          THEN bh.hours ELSE 0 END), 0) as hours_regular
+      FROM burnt_hours bh
+      LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
+      WHERE bh.is_mock_data = 0
+        AND (bh.ticket_key LIKE 'MOCS-%' OR bh.is_admin_overhead = 1)
+        AND (
+          (jt.loe_approved_at IS NOT NULL AND strftime('%Y', jt.loe_approved_at) = ? AND strftime('%m', jt.loe_approved_at) = ?)
+          OR (jt.loe_approved_at IS NULL AND strftime('%Y', bh.work_date) = ? AND strftime('%m', bh.work_date) = ?)
+          OR (bh.ticket_key IS NULL AND strftime('%Y', bh.work_date) = ? AND strftime('%m', bh.work_date) = ?)
+        )
+    `).get(
+      year.toString(), month.toString().padStart(2, '0'),
+      year.toString(), month.toString().padStart(2, '0'),
+      year.toString(), month.toString().padStart(2, '0')
+    );
+    
+    res.json({ year, month, result });
+  } catch (error) {
+    res.json({ error: String(error) });
+  }
+});
+
 // Debug endpoint to check date distribution and priority values
 app.get('/api/debug/dates', (req, res) => {
   try {

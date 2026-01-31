@@ -98,7 +98,7 @@ interface TicketOverview {
     phase: string;
     reporter_name: string | null;
     assignee_name: string | null;
-    updated_at: string;
+    jira_updated_at: string;
   }>;
 }
 
@@ -664,7 +664,7 @@ export function DashboardPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {ticket.updated_at ? new Date(ticket.updated_at).toLocaleString('en-US', {
+                    {ticket.jira_updated_at ? new Date(ticket.jira_updated_at).toLocaleString('en-US', {
                       month: 'short',
                       day: 'numeric',
                       hour: 'numeric',

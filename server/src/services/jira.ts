@@ -115,6 +115,7 @@ class JiraService {
 
   /**
    * Fetch all issues from a project with pagination
+   * Uses the new /search/jql endpoint as per Atlassian's migration guide
    */
   async fetchProjectIssues(projectKey: string): Promise<JiraIssue[]> {
     if (!this.isConfigured()) {
@@ -122,7 +123,7 @@ class JiraService {
     }
 
     const allIssues: JiraIssue[] = [];
-    let startAt = 0;
+    let nextPageToken: string | undefined;
     const maxResults = 100;
 
     // Fields to fetch - standard + custom fields
@@ -145,12 +146,17 @@ class JiraService {
     // Remove trailing slash from baseUrl if present
     const baseUrl = this.baseUrl.replace(/\/$/, '');
 
-    while (true) {
-      const url = new URL(`${baseUrl}/rest/api/3/search`);
+    do {
+      const url = new URL(`${baseUrl}/rest/api/3/search/jql`);
       url.searchParams.set('jql', `project = ${projectKey} ORDER BY created ASC`);
-      url.searchParams.set('startAt', startAt.toString());
       url.searchParams.set('maxResults', maxResults.toString());
       url.searchParams.set('fields', fields);
+      
+      if (nextPageToken) {
+        url.searchParams.set('nextPageToken', nextPageToken);
+      }
+
+      console.log(`   📡 Fetching: ${url.toString().substring(0, 100)}...`);
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -161,28 +167,23 @@ class JiraService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`   ❌ Error: ${response.status} - ${errorText}`);
         throw new Error(`Failed to fetch issues for ${projectKey}: HTTP ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json() as any;
+      const data = await response.json() as JiraSearchResponse;
       const issues = data.issues || [];
       allIssues.push(...issues);
+      nextPageToken = data.nextPageToken;
       
-      console.log(`     Fetched ${issues.length} issues for ${projectKey} (total: ${allIssues.length}/${data.total || '?'})`);
-
-      // Check if we've fetched all issues
-      if (issues.length < maxResults || allIssues.length >= (data.total || Infinity)) {
-        break;
-      }
-
-      startAt += maxResults;
+      console.log(`   ✅ Fetched ${issues.length} issues for ${projectKey} (total so far: ${allIssues.length}, hasMore: ${!!nextPageToken})`);
 
       // Safety check - stop after 10000 issues
       if (allIssues.length >= 10000) {
         console.warn(`⚠️  Reached 10000 issue limit for project ${projectKey}`);
         break;
       }
-    }
+    } while (nextPageToken);
 
     return allIssues;
   }

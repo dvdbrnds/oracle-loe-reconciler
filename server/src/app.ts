@@ -155,8 +155,8 @@ app.get('/api/debug/jira-test', async (req, res) => {
     });
     const myselfData = myselfResponse.ok ? await myselfResponse.json() : await myselfResponse.text();
     
-    // Test 2: Search for MOCS issues
-    const searchUrl = `${baseUrl}/rest/api/3/search?jql=project=MOCS&maxResults=5&fields=key,summary,priority`;
+    // Test 2: Search for MOCS issues (using new /search/jql endpoint)
+    const searchUrl = `${baseUrl}/rest/api/3/search/jql?jql=project=MOCS&maxResults=5&fields=key,summary,priority`;
     const searchResponse = await fetch(searchUrl, {
       headers: { 'Authorization': authHeader, 'Accept': 'application/json' }
     });

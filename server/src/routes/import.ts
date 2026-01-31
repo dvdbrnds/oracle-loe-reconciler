@@ -116,6 +116,21 @@ importRouter.post('/burnt-hours', upload.single('file'), async (req: AuthRequest
     console.log('Data rows count:', dataRows.length);
     console.log('User ID:', req.user!.id);
 
+    // Check for duplicate import (same filename uploaded today)
+    const existingBatch = db.prepare(`
+      SELECT id, filename, imported_at, row_count, total_hours 
+      FROM import_batches 
+      WHERE filename = ? 
+        AND date(imported_at) = date('now')
+        AND is_mock_data = 0
+    `).get(filename) as { id: number; filename: string; imported_at: string; row_count: number; total_hours: number } | undefined;
+
+    if (existingBatch) {
+      // Clean up uploaded file
+      fs.unlinkSync(filePath);
+      throw new AppError(409, `This file "${filename}" was already imported today at ${existingBatch.imported_at}. It contains ${existingBatch.row_count} rows totaling ${existingBatch.total_hours} hours. Please use a different filename or wait until tomorrow to re-import.`);
+    }
+
     // Create import batch
     console.log('Creating import batch...');
     const batchResult = db.prepare(`

@@ -80,6 +80,43 @@ app.get('/api/debug/config', (req, res) => {
   });
 });
 
+// Debug endpoint to check data persistence (burnt_hours and import history)
+app.get('/api/debug/persistence', (req, res) => {
+  try {
+    const db = getDb();
+    
+    const importBatches = db.prepare(`
+      SELECT id, filename, row_count, total_hours, imported_at
+      FROM import_batches
+      WHERE is_mock_data = 0
+      ORDER BY imported_at DESC
+      LIMIT 10
+    `).all();
+    
+    const burntHoursSummary = db.prepare(`
+      SELECT 
+        COUNT(*) as total_records,
+        SUM(hours) as total_hours,
+        COUNT(DISTINCT import_batch_id) as batch_count,
+        MIN(created_at) as earliest_record,
+        MAX(created_at) as latest_record
+      FROM burnt_hours
+      WHERE is_mock_data = 0
+    `).get();
+    
+    const dbPath = config.databasePath;
+    
+    res.json({
+      databasePath: dbPath,
+      importBatches,
+      burntHoursSummary,
+      message: 'If data disappears after reboot, check Coolify volume persistence settings'
+    });
+  } catch (error) {
+    res.json({ error: String(error) });
+  }
+});
+
 // Debug endpoint to check jira_updated_at values
 app.get('/api/debug/updated-check', (req, res) => {
   try {

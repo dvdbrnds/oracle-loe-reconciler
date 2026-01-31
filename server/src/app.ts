@@ -119,7 +119,24 @@ app.get('/api/debug/work-types', (req, res) => {
       WHERE bh.is_mock_data = 0 AND bh.is_admin_overhead = 0
     `).get();
     
-    res.json({ priorities, payroll, totals, matching });
+    // Get ticket counts by project
+    const projectStats = db.prepare(`
+      SELECT project_key, COUNT(*) as count
+      FROM jira_tickets
+      WHERE is_mock_data = 0
+      GROUP BY project_key
+    `).all();
+    
+    // Sample burnt_hours ticket keys that don't match
+    const unmatchedKeys = db.prepare(`
+      SELECT DISTINCT bh.ticket_key
+      FROM burnt_hours bh
+      LEFT JOIN jira_tickets jt ON bh.ticket_key = jt.key
+      WHERE bh.is_mock_data = 0 AND bh.is_admin_overhead = 0 AND jt.key IS NULL
+      LIMIT 10
+    `).all();
+    
+    res.json({ priorities, payroll, totals, matching, projectStats, unmatchedKeys });
   } catch (error) {
     res.json({ error: String(error) });
   }

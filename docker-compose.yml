@@ -15,12 +15,18 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
       - DEFAULT_MONTHLY_HOURS=${DEFAULT_MONTHLY_HOURS:-100}
       - USE_MOCK_DATA=${USE_MOCK_DATA:-false}
-      # Jira configuration (optional)
+      # Jira configuration
       - JIRA_INSTANCE_URL=${JIRA_INSTANCE_URL:-}
-      - JIRA_EMAIL=${JIRA_EMAIL:-}
+      - JIRA_API_EMAIL=${JIRA_API_EMAIL:-}
       - JIRA_API_TOKEN=${JIRA_API_TOKEN:-}
-      - JIRA_PROJECTS=${JIRA_PROJECTS:-MOCS}
+      - JIRA_PROJECTS=${JIRA_PROJECTS:-MOHEECI,MOCSO,MOCS,MOPT,MSPP}
       - JIRA_SYNC_INTERVAL_MINUTES=${JIRA_SYNC_INTERVAL_MINUTES:-15}
+      # SAML/SSO configuration
+      - SAML_ENABLED=${SAML_ENABLED:-true}
+      - SAML_ENTRY_POINT=${SAML_ENTRY_POINT:-}
+      - SAML_CALLBACK_URL=${SAML_CALLBACK_URL:-}
+      - SAML_CERT=${SAML_CERT:-}
+      - SESSION_SECRET=${SESSION_SECRET:-change-this-in-production}
     volumes:
       # Persist database and uploads
       - app_data:/app/data

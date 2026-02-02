@@ -274,6 +274,56 @@ function getMigrations(): Record<string, string> {
       CREATE INDEX idx_import_batches_content_hash ON import_batches(content_hash);
       CREATE INDEX idx_import_batches_data_fingerprint ON import_batches(data_fingerprint);
     `,
+
+    '004_deduplicate_burnt_hours': `
+      -- One-time cleanup: Remove duplicate burnt_hours records
+      -- Duplicates are identified by same ticket_key + work_date + hours + description
+      -- We keep the record with the lowest id (first imported)
+      
+      -- Step 1: Delete duplicate records (keep lowest id per group)
+      DELETE FROM burnt_hours
+      WHERE id NOT IN (
+        SELECT MIN(id)
+        FROM burnt_hours
+        WHERE is_mock_data = 0
+        GROUP BY ticket_key, work_date, hours, description
+      )
+      AND is_mock_data = 0;
+
+      -- Step 2: Delete sum/total rows that slipped through before the fix
+      DELETE FROM burnt_hours
+      WHERE is_mock_data = 0
+      AND (
+        LOWER(description) = 'sum'
+        OR LOWER(description) = 'total'
+        OR LOWER(description) = 'grand total'
+        OR LOWER(description) = 'subtotal'
+        OR LOWER(description) LIKE 'total:%'
+        OR LOWER(description) LIKE 'sum:%'
+        OR LOWER(description) LIKE '%grand total%'
+        OR LOWER(jira_project) = 'sum'
+        OR LOWER(jira_project) = 'total'
+        OR LOWER(jira_project) = 'grand total'
+      );
+
+      -- Step 3: Update import_batches totals to reflect actual data
+      UPDATE import_batches
+      SET 
+        row_count = (
+          SELECT COUNT(*) FROM burnt_hours 
+          WHERE burnt_hours.import_batch_id = import_batches.id
+        ),
+        total_hours = (
+          SELECT COALESCE(SUM(hours), 0) FROM burnt_hours 
+          WHERE burnt_hours.import_batch_id = import_batches.id
+        )
+      WHERE is_mock_data = 0;
+
+      -- Step 4: Delete empty import batches (all records were duplicates/totals)
+      DELETE FROM import_batches
+      WHERE is_mock_data = 0
+      AND id NOT IN (SELECT DISTINCT import_batch_id FROM burnt_hours WHERE is_mock_data = 0);
+    `,
   };
 }
 

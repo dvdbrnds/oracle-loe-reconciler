@@ -50,8 +50,19 @@ dashboardRouter.get('/periods', (req, res, next) => {
       ORDER BY year DESC, month DESC
     `).all() as Array<{ year: number; month: number }>;
 
+    // Current period (always include even if no data)
+    const now = new Date();
+    const currentPeriod = {
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+    };
+
     // Merge and deduplicate periods
     const allPeriods = new Map<string, { year: number; month: number }>();
+    
+    // Always include current month first
+    const currentKey = `${currentPeriod.year}-${currentPeriod.month}`;
+    allPeriods.set(currentKey, currentPeriod);
     
     for (const p of [...ticketPeriods, ...burntPeriods]) {
       if (p.year && p.month) {
@@ -69,15 +80,10 @@ dashboardRouter.get('/periods', (req, res, next) => {
         return b.month - a.month;
       });
 
-    // Get unique years
-    const years = [...new Set(periods.map(p => p.year))].sort((a, b) => b - a);
-
-    // Current period
-    const now = new Date();
-    const currentPeriod = {
-      year: now.getFullYear(),
-      month: now.getMonth() + 1,
-    };
+    // Get unique years (always include current year)
+    const yearsSet = new Set(periods.map(p => p.year));
+    yearsSet.add(currentPeriod.year);
+    const years = [...yearsSet].sort((a, b) => b - a);
 
     res.json({
       periods,

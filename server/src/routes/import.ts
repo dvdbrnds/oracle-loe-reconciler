@@ -2,11 +2,33 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import XLSX from 'xlsx';
 import { getDb } from '../db/database.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+
+// Generate SHA-256 hash of file content
+function hashFileContent(filePath: string): string {
+  const fileBuffer = fs.readFileSync(filePath);
+  return crypto.createHash('sha256').update(fileBuffer).digest('hex');
+}
+
+// Generate a fingerprint from parsed data (catches same data in different files)
+function generateDataFingerprint(rows: Array<{ ticketKey: string | null; hours: number }>): string {
+  // Sort by ticket key then hours for consistent fingerprinting
+  const sorted = [...rows].sort((a, b) => {
+    const keyA = a.ticketKey || '';
+    const keyB = b.ticketKey || '';
+    if (keyA !== keyB) return keyA.localeCompare(keyB);
+    return a.hours - b.hours;
+  });
+  
+  // Create a string representation and hash it
+  const dataString = sorted.map(r => `${r.ticketKey || 'ADMIN'}:${r.hours}`).join('|');
+  return crypto.createHash('sha256').update(dataString).digest('hex');
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,6 +80,22 @@ importRouter.post('/burnt-hours', upload.single('file'), async (req: AuthRequest
     const filePath = req.file.path;
     const filename = req.file.originalname;
 
+    // STEP 1: Hash the file content to detect exact duplicate files
+    const contentHash = hashFileContent(filePath);
+    console.log('Content hash:', contentHash.substring(0, 16) + '...');
+
+    // Check for exact duplicate file (same content, possibly different name)
+    const duplicateByContent = db.prepare(`
+      SELECT id, filename, imported_at, row_count, total_hours 
+      FROM import_batches 
+      WHERE content_hash = ? AND is_mock_data = 0
+    `).get(contentHash) as { id: number; filename: string; imported_at: string; row_count: number; total_hours: number } | undefined;
+
+    if (duplicateByContent) {
+      fs.unlinkSync(filePath);
+      throw new AppError(409, `This exact file was already imported on ${duplicateByContent.imported_at} as "${duplicateByContent.filename}" (${duplicateByContent.row_count} rows, ${duplicateByContent.total_hours} hours). Upload rejected to prevent duplicate data.`);
+    }
+
     // Read Excel file
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
@@ -70,6 +108,7 @@ importRouter.post('/burnt-hours', upload.single('file'), async (req: AuthRequest
     }) as any[][];
 
     if (rawData.length < 2) {
+      fs.unlinkSync(filePath);
       throw new AppError(400, 'Excel file has insufficient data rows');
     }
 
@@ -95,6 +134,7 @@ importRouter.post('/burnt-hours', upload.single('file'), async (req: AuthRequest
     const dataRows = rawData.slice(headerRowIndex + 1);
 
     if (dataRows.length === 0) {
+      fs.unlinkSync(filePath);
       throw new AppError(400, 'No data rows found after header row');
     }
 
@@ -116,88 +156,88 @@ importRouter.post('/burnt-hours', upload.single('file'), async (req: AuthRequest
     console.log('Data rows count:', dataRows.length);
     console.log('User ID:', req.user!.id);
 
-    // Check for duplicate import (same filename uploaded today)
-    const existingBatch = db.prepare(`
-      SELECT id, filename, imported_at, row_count, total_hours 
-      FROM import_batches 
-      WHERE filename = ? 
-        AND date(imported_at) = date('now')
-        AND is_mock_data = 0
-    `).get(filename) as { id: number; filename: string; imported_at: string; row_count: number; total_hours: number } | undefined;
-
-    if (existingBatch) {
-      // Clean up uploaded file
-      fs.unlinkSync(filePath);
-      throw new AppError(409, `This file "${filename}" was already imported today at ${existingBatch.imported_at}. It contains ${existingBatch.row_count} rows totaling ${existingBatch.total_hours} hours. Please use a different filename or wait until tomorrow to re-import.`);
+    // STEP 2: Pre-parse data to generate fingerprint (detect same data in different files)
+    const parsedRows: Array<{ ticketKey: string | null; hours: number; project: string; description: string }> = [];
+    let tempProject = '';
+    
+    for (const row of dataRows) {
+      if (!row || row.every(cell => cell === '' || cell === null || cell === undefined)) continue;
+      
+      const projectValue = row[colMap.projectName];
+      if (projectValue && typeof projectValue === 'string' && projectValue.trim()) {
+        tempProject = projectValue.trim();
+      }
+      
+      const hoursValue = row[colMap.hoursBillable];
+      const hours = typeof hoursValue === 'number' ? hoursValue : parseFloat(hoursValue);
+      if (isNaN(hours) || hours === 0) continue;
+      
+      const jiraKey = row[colMap.jiraKey]?.toString().trim() || null;
+      const description = row[colMap.taskName]?.toString().trim() || '';
+      
+      // Skip sum/total rows
+      const descLower = description.toLowerCase();
+      const projectLower = tempProject.toLowerCase();
+      if (descLower === 'sum' || descLower === 'total' || descLower === 'grand total' || 
+          descLower.startsWith('total:') || descLower.startsWith('sum:') ||
+          descLower === 'subtotal' || descLower.includes('grand total') ||
+          projectLower === 'sum' || projectLower === 'total' || projectLower === 'grand total') {
+        continue;
+      }
+      
+      parsedRows.push({ ticketKey: jiraKey, hours, project: tempProject, description });
     }
 
-    // Create import batch
+    if (parsedRows.length === 0) {
+      fs.unlinkSync(filePath);
+      throw new AppError(400, 'No valid data rows found in file');
+    }
+
+    // Generate data fingerprint
+    const dataFingerprint = generateDataFingerprint(parsedRows);
+    console.log('Data fingerprint:', dataFingerprint.substring(0, 16) + '...');
+
+    // Check for duplicate data (same hours data, possibly from different file)
+    const duplicateByData = db.prepare(`
+      SELECT id, filename, imported_at, row_count, total_hours 
+      FROM import_batches 
+      WHERE data_fingerprint = ? AND is_mock_data = 0
+    `).get(dataFingerprint) as { id: number; filename: string; imported_at: string; row_count: number; total_hours: number } | undefined;
+
+    if (duplicateByData) {
+      fs.unlinkSync(filePath);
+      throw new AppError(409, `This data was already imported on ${duplicateByData.imported_at} from "${duplicateByData.filename}" (${duplicateByData.row_count} rows, ${duplicateByData.total_hours} hours). The hours data matches an existing import. Upload rejected to prevent duplicate data.`);
+    }
+
+    // STEP 3: Create import batch with hashes
     console.log('Creating import batch...');
     const batchResult = db.prepare(`
-      INSERT INTO import_batches (filename, imported_by, is_mock_data)
-      VALUES (?, ?, 0)
-    `).run(filename, req.user!.id);
+      INSERT INTO import_batches (filename, imported_by, is_mock_data, content_hash, data_fingerprint)
+      VALUES (?, ?, 0, ?, ?)
+    `).run(filename, req.user!.id, contentHash, dataFingerprint);
     console.log('Batch created:', batchResult.lastInsertRowid);
 
     const batchId = batchResult.lastInsertRowid;
 
-    // Parse and insert rows
+    // STEP 4: Insert the pre-parsed rows
     const insertHours = db.prepare(`
       INSERT INTO burnt_hours (ticket_key, jira_project, description, hours, is_admin_overhead, import_batch_id, is_mock_data, work_date)
       VALUES (?, ?, ?, ?, ?, ?, 0, date('now'))
     `);
 
-    let currentProject = '';
     let rowCount = 0;
     let totalHours = 0;
-    const errors: string[] = [];
 
     db.exec('BEGIN TRANSACTION');
 
     try {
-      for (let i = 0; i < dataRows.length; i++) {
-        const row = dataRows[i];
-        
-        // Skip empty rows
-        if (!row || row.every(cell => cell === '' || cell === null || cell === undefined)) {
-          continue;
-        }
-
-        // Track current project (it may be grouped/merged cells)
-        const projectValue = row[colMap.projectName];
-        if (projectValue && typeof projectValue === 'string' && projectValue.trim()) {
-          currentProject = projectValue.trim();
-        }
-
-        // Get hours
-        const hoursValue = row[colMap.hoursBillable];
-        const hours = typeof hoursValue === 'number' ? hoursValue : parseFloat(hoursValue);
-        
-        if (isNaN(hours) || hours === 0) {
-          continue; // Skip rows without valid hours
-        }
-
-        // Get Jira key (may be empty for admin/overhead)
-        const jiraKey = row[colMap.jiraKey]?.toString().trim() || null;
-        const description = row[colMap.taskName]?.toString().trim() || '';
-
-        // Skip total/sum rows (common Excel patterns)
-        const descLower = description.toLowerCase();
-        const projectLower = currentProject.toLowerCase();
-        if (descLower === 'sum' || descLower === 'total' || descLower === 'grand total' || 
-            descLower.startsWith('total:') || descLower.startsWith('sum:') ||
-            descLower === 'subtotal' || descLower.includes('grand total') ||
-            projectLower === 'sum' || projectLower === 'total' || projectLower === 'grand total') {
-          console.log(`Skipping total row: project="${currentProject}", desc="${description}" with ${hours} hours`);
-          continue;
-        }
-
+      for (const row of parsedRows) {
         // Determine if admin/overhead (no Jira key)
-        const isAdmin = jiraKey === null || jiraKey === '' ? 1 : 0;
+        const isAdmin = row.ticketKey === null || row.ticketKey === '' ? 1 : 0;
 
-        insertHours.run(jiraKey || null, currentProject, description, hours, isAdmin, batchId);
+        insertHours.run(row.ticketKey || null, row.project, row.description, row.hours, isAdmin, batchId);
         rowCount++;
-        totalHours += hours;
+        totalHours += row.hours;
       }
 
       // Update batch totals
@@ -216,7 +256,6 @@ importRouter.post('/burnt-hours', upload.single('file'), async (req: AuthRequest
         filename,
         rowCount,
         totalHours: Math.round(totalHours * 100) / 100,
-        errors: errors.length > 0 ? errors : undefined,
       });
 
     } catch (error) {

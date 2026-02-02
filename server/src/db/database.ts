@@ -262,6 +262,18 @@ function getMigrations(): Record<string, string> {
       -- Create index for period-based queries
       CREATE INDEX idx_jira_tickets_loe_approved_at ON jira_tickets(loe_approved_at);
     `,
+
+    '003_import_duplicate_detection': `
+      -- Add content_hash to detect exact duplicate files (same file, different name)
+      ALTER TABLE import_batches ADD COLUMN content_hash TEXT;
+
+      -- Add data_fingerprint to detect same data in different files
+      ALTER TABLE import_batches ADD COLUMN data_fingerprint TEXT;
+
+      -- Create indexes for fast duplicate lookups
+      CREATE INDEX idx_import_batches_content_hash ON import_batches(content_hash);
+      CREATE INDEX idx_import_batches_data_fingerprint ON import_batches(data_fingerprint);
+    `,
   };
 }
 

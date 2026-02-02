@@ -134,6 +134,41 @@ app.get('/api/debug/updated-check', (req, res) => {
   }
 });
 
+// Debug endpoint to show full hours breakdown
+app.get('/api/debug/hours-breakdown', (req, res) => {
+  try {
+    const db = getDb();
+    
+    // Total from burnt_hours table
+    const totals = db.prepare(`
+      SELECT 
+        SUM(hours) as total_all,
+        SUM(CASE WHEN is_admin_overhead = 1 THEN hours ELSE 0 END) as admin_hours,
+        SUM(CASE WHEN is_admin_overhead = 0 THEN hours ELSE 0 END) as non_admin_hours,
+        SUM(CASE WHEN ticket_key LIKE 'MOCS-%' THEN hours ELSE 0 END) as mocs_hours,
+        COUNT(*) as record_count
+      FROM burnt_hours
+      WHERE is_mock_data = 0
+    `).get();
+    
+    // By project
+    const byProject = db.prepare(`
+      SELECT 
+        COALESCE(jira_project, ticket_key, 'Unknown') as project,
+        SUM(hours) as hours,
+        COUNT(*) as records
+      FROM burnt_hours
+      WHERE is_mock_data = 0
+      GROUP BY COALESCE(jira_project, ticket_key, 'Unknown')
+      ORDER BY hours DESC
+    `).all();
+    
+    res.json({ totals, byProject });
+  } catch (error) {
+    res.json({ error: String(error) });
+  }
+});
+
 // Debug endpoint to run the exact dashboard work-type calculation
 app.get('/api/debug/dashboard-calc', (req, res) => {
   try {

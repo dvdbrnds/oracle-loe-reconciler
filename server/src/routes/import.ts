@@ -346,7 +346,7 @@ importRouter.delete('/history/:batchId', (req: AuthRequest, res, next) => {
     }
 
     // Delete burnt_hours records first (CASCADE should handle this, but be explicit)
-    const deletedRows = db.prepare(`
+    db.prepare(`
       DELETE FROM burnt_hours WHERE import_batch_id = ?
     `).run(batchId);
 

@@ -151,19 +151,42 @@ app.get('/api/debug/hours-breakdown', (req, res) => {
       WHERE is_mock_data = 0
     `).get();
     
-    // By project
-    const byProject = db.prepare(`
+    // By import batch (to detect duplicates)
+    const byImport = db.prepare(`
       SELECT 
-        COALESCE(jira_project, ticket_key, 'Unknown') as project,
-        SUM(hours) as hours,
-        COUNT(*) as records
-      FROM burnt_hours
-      WHERE is_mock_data = 0
-      GROUP BY COALESCE(jira_project, ticket_key, 'Unknown')
-      ORDER BY hours DESC
+        ih.id as import_id,
+        ih.filename,
+        ih.uploaded_at,
+        ih.uploaded_by,
+        COALESCE(SUM(bh.hours), 0) as total_hours,
+        COUNT(bh.id) as record_count
+      FROM import_history ih
+      LEFT JOIN burnt_hours bh ON bh.import_id = ih.id
+      WHERE ih.is_mock_data = 0
+      GROUP BY ih.id, ih.filename, ih.uploaded_at, ih.uploaded_by
+      ORDER BY ih.uploaded_at DESC
     `).all();
     
-    res.json({ totals, byProject });
+    // Check for duplicate records (same ticket_key + work_date + hours)
+    const duplicates = db.prepare(`
+      SELECT 
+        ticket_key,
+        work_date,
+        hours,
+        COUNT(*) as occurrences
+      FROM burnt_hours
+      WHERE is_mock_data = 0
+      GROUP BY ticket_key, work_date, hours
+      HAVING COUNT(*) > 1
+      LIMIT 20
+    `).all();
+    
+    res.json({ 
+      totals, 
+      byImport,
+      duplicateRecords: duplicates,
+      duplicateCount: duplicates.length
+    });
   } catch (error) {
     res.json({ error: String(error) });
   }

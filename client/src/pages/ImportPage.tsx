@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { toast } from '../components/ui/toaster';
-import { Upload, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileSpreadsheet, Trash2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ImportBatch {
   id: number;
@@ -14,9 +15,11 @@ interface ImportBatch {
 }
 
 export function ImportPage() {
+  const { user } = useAuth();
   const [history, setHistory] = useState<ImportBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,6 +98,30 @@ export function ImportPage() {
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files[0]) {
       handleUpload(e.target.files[0]);
+    }
+  }
+
+  async function handleDelete(batchId: number, filename: string) {
+    if (!confirm(`Are you sure you want to delete import "${filename}"? This will remove all hours from this import.`)) {
+      return;
+    }
+
+    setDeleting(batchId);
+    try {
+      await api.delete(`/import/history/${batchId}`);
+      toast({
+        title: 'Import deleted',
+        description: `Successfully deleted "${filename}"`,
+      });
+      fetchHistory();
+    } catch (error) {
+      toast({
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Please try again',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -204,6 +231,11 @@ export function ImportPage() {
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
                     Type
                   </th>
+                  {user?.role === 'admin' && (
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -234,6 +266,22 @@ export function ImportPage() {
                         </span>
                       )}
                     </td>
+                    {user?.role === 'admin' && (
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => handleDelete(batch.id, batch.filename)}
+                          disabled={deleting === batch.id}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                          title="Delete this import"
+                        >
+                          {deleting === batch.id ? (
+                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

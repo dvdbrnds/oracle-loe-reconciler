@@ -181,6 +181,17 @@ importRouter.post('/burnt-hours', upload.single('file'), async (req: AuthRequest
         const jiraKey = row[colMap.jiraKey]?.toString().trim() || null;
         const description = row[colMap.taskName]?.toString().trim() || '';
 
+        // Skip total/sum rows (common Excel patterns)
+        const descLower = description.toLowerCase();
+        const projectLower = currentProject.toLowerCase();
+        if (descLower === 'sum' || descLower === 'total' || descLower === 'grand total' || 
+            descLower.startsWith('total:') || descLower.startsWith('sum:') ||
+            descLower === 'subtotal' || descLower.includes('grand total') ||
+            projectLower === 'sum' || projectLower === 'total' || projectLower === 'grand total') {
+          console.log(`Skipping total row: project="${currentProject}", desc="${description}" with ${hours} hours`);
+          continue;
+        }
+
         // Determine if admin/overhead (no Jira key)
         const isAdmin = jiraKey === null || jiraKey === '' ? 1 : 0;
 
@@ -267,6 +278,54 @@ importRouter.get('/history/:batchId', (req, res, next) => {
     `).all(batchId);
 
     res.json({ batch, rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete an import batch (admin only)
+importRouter.delete('/history/:batchId', (req: AuthRequest, res, next) => {
+  try {
+    const { batchId } = req.params;
+    const db = getDb();
+
+    // Check if user is admin (role === 'admin')
+    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(req.user!.id) as { role: string } | undefined;
+    if (user?.role !== 'admin') {
+      throw new AppError(403, 'Only admins can delete import batches');
+    }
+
+    // Get batch info before deleting
+    const batch = db.prepare(`
+      SELECT id, filename, row_count, total_hours 
+      FROM import_batches 
+      WHERE id = ?
+    `).get(batchId) as { id: number; filename: string; row_count: number; total_hours: number } | undefined;
+
+    if (!batch) {
+      throw new AppError(404, 'Import batch not found');
+    }
+
+    // Delete burnt_hours records first (CASCADE should handle this, but be explicit)
+    const deletedRows = db.prepare(`
+      DELETE FROM burnt_hours WHERE import_batch_id = ?
+    `).run(batchId);
+
+    // Delete the batch
+    db.prepare(`
+      DELETE FROM import_batches WHERE id = ?
+    `).run(batchId);
+
+    res.json({
+      success: true,
+      message: `Deleted import batch "${batch.filename}" with ${batch.row_count} rows totaling ${batch.total_hours} hours`,
+      deleted: {
+        batchId: batch.id,
+        filename: batch.filename,
+        rowCount: batch.row_count,
+        totalHours: batch.total_hours,
+      },
+    });
   } catch (error) {
     next(error);
   }

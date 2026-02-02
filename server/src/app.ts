@@ -154,17 +154,15 @@ app.get('/api/debug/hours-breakdown', (req, res) => {
     // By import batch (to detect duplicates)
     const byImport = db.prepare(`
       SELECT 
-        ih.id as import_id,
-        ih.filename,
-        ih.uploaded_at,
-        ih.uploaded_by,
-        COALESCE(SUM(bh.hours), 0) as total_hours,
-        COUNT(bh.id) as record_count
-      FROM import_history ih
-      LEFT JOIN burnt_hours bh ON bh.import_id = ih.id
-      WHERE ih.is_mock_data = 0
-      GROUP BY ih.id, ih.filename, ih.uploaded_at, ih.uploaded_by
-      ORDER BY ih.uploaded_at DESC
+        ib.id as import_id,
+        ib.filename,
+        ib.imported_at,
+        ib.imported_by,
+        ib.total_hours,
+        ib.row_count as record_count
+      FROM import_batches ib
+      WHERE ib.is_mock_data = 0
+      ORDER BY ib.imported_at DESC
     `).all();
     
     // Check for duplicate records (same ticket_key + work_date + hours)

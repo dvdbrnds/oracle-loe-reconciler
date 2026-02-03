@@ -128,6 +128,13 @@ export interface Ticket {
   phase: string | null;
   project_name: string | null;
   application_name: string | null;
+  // Aging metrics
+  days_since_approved: number | null;
+  days_waiting_for_work: number | null;
+  days_since_last_work: number | null;
+  first_work_date: string | null;
+  last_work_date: string | null;
+  loe_approved_at?: string | null;
 }
 
 export interface TicketsResponse {

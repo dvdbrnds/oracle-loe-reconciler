@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { AlertTriangle, TrendingUp, TrendingDown, Target, Calendar } from 'lucide-react';
+import { AlertTriangle, TrendingUp, TrendingDown, Target, Calendar, Clock } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -55,30 +55,63 @@ interface ApprovedNoLoeResponse {
   };
 }
 
+interface WaitingTicket {
+  key: string;
+  summary: string;
+  application: string | null;
+  application_name: string | null;
+  priority: string | null;
+  phase: string | null;
+  status: string;
+  loe_hours: number | null;
+  loe_approved_at: string;
+  jira_updated_at: string | null;
+  days_waiting?: number;
+  days_since_work?: number;
+  hours_burnt?: number;
+  last_work_date?: string;
+}
+
+interface WaitingOnVendorResponse {
+  notStarted: WaitingTicket[];
+  stalled: WaitingTicket[];
+  summary: {
+    notStartedCount: number;
+    stalledCount: number;
+    criticalCount: number;
+    warningCount: number;
+    totalLoeHoursWaiting: number;
+    description: string;
+  };
+}
+
 export function CompliancePage() {
   const [unapproved, setUnapproved] = useState<any>(null);
   const [accuracy, setAccuracy] = useState<any>(null);
   const [overages, setOverages] = useState<any>(null);
   const [dateMismatches, setDateMismatches] = useState<DateMismatchesResponse | null>(null);
   const [approvedNoLoe, setApprovedNoLoe] = useState<ApprovedNoLoeResponse | null>(null);
+  const [waitingOnVendor, setWaitingOnVendor] = useState<WaitingOnVendorResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'unapproved' | 'approvedNoLoe' | 'accuracy' | 'overages' | 'dateMismatches'>('unapproved');
+  const [activeTab, setActiveTab] = useState<'waitingOnVendor' | 'unapproved' | 'approvedNoLoe' | 'accuracy' | 'overages' | 'dateMismatches'>('waitingOnVendor');
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [unapprovedData, approvedNoLoeData, accuracyData, overagesData, dateMismatchesData] = await Promise.all([
+        const [unapprovedData, approvedNoLoeData, accuracyData, overagesData, dateMismatchesData, waitingData] = await Promise.all([
           api.get('/compliance/unapproved-loe'),
           api.get<ApprovedNoLoeResponse>('/compliance/approved-no-loe'),
           api.get('/compliance/loe-accuracy'),
           api.get('/compliance/overages'),
           api.get<DateMismatchesResponse>('/compliance/date-mismatches'),
+          api.get<WaitingOnVendorResponse>('/compliance/waiting-on-vendor'),
         ]);
         setUnapproved(unapprovedData);
         setApprovedNoLoe(approvedNoLoeData);
         setAccuracy(accuracyData);
         setOverages(overagesData);
         setDateMismatches(dateMismatchesData);
+        setWaitingOnVendor(waitingData);
       } catch (error) {
         console.error('Failed to fetch compliance data:', error);
       } finally {
@@ -104,7 +137,24 @@ export function CompliancePage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="bg-white rounded-xl shadow-sm border p-6">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${(waitingOnVendor?.summary?.criticalCount || 0) > 0 ? 'bg-red-100' : 'bg-amber-100'}`}>
+              <Clock className={`w-5 h-5 ${(waitingOnVendor?.summary?.criticalCount || 0) > 0 ? 'text-red-600' : 'text-amber-600'}`} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Waiting on Vendor</p>
+              <p className={`text-2xl font-bold ${(waitingOnVendor?.summary?.criticalCount || 0) > 0 ? 'text-red-600' : 'text-amber-600'}`}>
+                {(waitingOnVendor?.summary?.notStartedCount || 0) + (waitingOnVendor?.summary?.stalledCount || 0)}
+              </p>
+              <p className="text-xs text-gray-500">
+                {waitingOnVendor?.summary?.criticalCount || 0} critical (14d+)
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-red-100 rounded-lg">
@@ -195,6 +245,7 @@ export function CompliancePage() {
       <div className="border-b">
         <nav className="flex gap-4 overflow-x-auto">
           {[
+            { id: 'waitingOnVendor', label: 'Waiting on Vendor', count: (waitingOnVendor?.summary?.notStartedCount || 0) + (waitingOnVendor?.summary?.stalledCount || 0) },
             { id: 'unapproved', label: 'Unapproved Work' },
             { id: 'approvedNoLoe', label: 'Approved No LOE' },
             { id: 'accuracy', label: 'LOE Accuracy' },
@@ -204,19 +255,177 @@ export function CompliancePage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
                 activeTab === tab.id
                   ? 'border-primary text-primary'
                   : 'border-transparent text-gray-600 hover:text-gray-900'
               }`}
             >
               {tab.label}
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+                  activeTab === tab.id ? 'bg-primary/10' : 'bg-gray-100'
+                }`}>
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </nav>
       </div>
 
       {/* Tab Content */}
+      {activeTab === 'waitingOnVendor' && (
+        <div className="space-y-6">
+          {/* Not Started Section */}
+          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div className="px-6 py-4 border-b bg-amber-50">
+              <h2 className="text-lg font-semibold text-amber-800">Not Started - Waiting for Vendor</h2>
+              <p className="text-sm text-amber-600 mt-1">
+                Tickets approved for work but vendor has not logged any hours ({waitingOnVendor?.summary?.totalLoeHoursWaiting || 0} LOE hours waiting)
+              </p>
+            </div>
+            {waitingOnVendor?.notStarted && waitingOnVendor.notStarted.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Application</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Approved</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Days Waiting</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">LOE Hours</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {waitingOnVendor.notStarted.map((ticket) => {
+                      const days = ticket.days_waiting || 0;
+                      let statusColor = 'bg-green-100 text-green-800';
+                      if (days >= 14) statusColor = 'bg-red-100 text-red-800';
+                      else if (days >= 7) statusColor = 'bg-yellow-100 text-yellow-800';
+                      
+                      return (
+                        <tr key={ticket.key} className="hover:bg-gray-50">
+                          <td className="px-6 py-4">
+                            <a 
+                              href={`https://drivestream.atlassian.net/browse/${ticket.key}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-sm text-primary hover:underline"
+                            >
+                              {ticket.key}
+                            </a>
+                            <p className="text-sm text-gray-600 truncate max-w-md">{ticket.summary}</p>
+                          </td>
+                          <td className="px-6 py-4 text-sm">{ticket.application_name || ticket.application || '-'}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              ticket.priority === 'Critical' || ticket.priority === 'Highest'
+                                ? 'bg-red-100 text-red-800'
+                                : ticket.priority === 'High'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {ticket.priority || 'None'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {ticket.loe_approved_at 
+                              ? new Date(ticket.loe_approved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                              : '-'
+                            }
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColor}`}>
+                              {days} days
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right font-medium">
+                            {ticket.loe_hours ? `${ticket.loe_hours}h` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                No tickets waiting for vendor to start work!
+              </div>
+            )}
+          </div>
+
+          {/* Stalled Section */}
+          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div className="px-6 py-4 border-b bg-orange-50">
+              <h2 className="text-lg font-semibold text-orange-800">Stalled - No Recent Work</h2>
+              <p className="text-sm text-orange-600 mt-1">
+                Open tickets with no work logged in 14+ days
+              </p>
+            </div>
+            {waitingOnVendor?.stalled && waitingOnVendor.stalled.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Application</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Work</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Days Stalled</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hours Burnt</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {waitingOnVendor.stalled.map((ticket) => (
+                      <tr key={ticket.key} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <a 
+                            href={`https://drivestream.atlassian.net/browse/${ticket.key}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-sm text-primary hover:underline"
+                          >
+                            {ticket.key}
+                          </a>
+                          <p className="text-sm text-gray-600 truncate max-w-md">{ticket.summary}</p>
+                        </td>
+                        <td className="px-6 py-4 text-sm">{ticket.application_name || ticket.application || '-'}</td>
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
+                            {ticket.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {ticket.last_work_date 
+                            ? new Date(ticket.last_work_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                            : '-'
+                          }
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
+                            {ticket.days_since_work} days
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium">
+                          {ticket.hours_burnt ? `${ticket.hours_burnt.toFixed(1)}h` : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                No stalled tickets!
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'unapproved' && (
         <div className="space-y-6">
           {/* Urgent Work Section - Not a compliance issue */}

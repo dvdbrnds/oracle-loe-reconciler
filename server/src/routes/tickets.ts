@@ -83,7 +83,7 @@ ticketsRouter.get('/', (req, res, next) => {
         sortColumn = `jt.${params.sortBy}`;
     }
 
-    // Get paginated results with burnt hours
+    // Get paginated results with burnt hours and aging metrics
     const offset = (params.page - 1) * params.limit;
     const query = `
       SELECT 
@@ -92,12 +92,34 @@ ticketsRouter.get('/', (req, res, next) => {
         jp.name as project_name,
         a.name as application_name,
         COALESCE(bh.hours_burnt, 0) as hours_burnt,
-        COALESCE(bh.hours_burnt, 0) > 0 AND jt.status != 'LOE Approved' as has_compliance_issue
+        COALESCE(bh.hours_burnt, 0) > 0 AND jt.status != 'LOE Approved' as has_compliance_issue,
+        -- Aging metrics
+        CASE 
+          WHEN jt.loe_approved_at IS NOT NULL 
+          THEN CAST(julianday('now') - julianday(jt.loe_approved_at) AS INTEGER)
+          ELSE NULL
+        END as days_since_approved,
+        CASE 
+          WHEN jt.loe_approved_at IS NOT NULL AND COALESCE(bh.hours_burnt, 0) = 0
+          THEN CAST(julianday('now') - julianday(jt.loe_approved_at) AS INTEGER)
+          ELSE NULL
+        END as days_waiting_for_work,
+        CASE
+          WHEN bh.last_work_date IS NOT NULL
+          THEN CAST(julianday('now') - julianday(bh.last_work_date) AS INTEGER)
+          ELSE NULL
+        END as days_since_last_work,
+        bh.first_work_date,
+        bh.last_work_date
       FROM jira_tickets jt
       LEFT JOIN jira_projects jp ON jt.project_key = jp.key
       LEFT JOIN applications a ON jt.application = a.code
       LEFT JOIN (
-        SELECT ticket_key, SUM(hours) as hours_burnt
+        SELECT 
+          ticket_key, 
+          SUM(hours) as hours_burnt,
+          MIN(work_date) as first_work_date,
+          MAX(work_date) as last_work_date
         FROM burnt_hours
         GROUP BY ticket_key
       ) bh ON jt.key = bh.ticket_key

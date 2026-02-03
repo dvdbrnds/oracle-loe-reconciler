@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, Ticket, TicketsResponse } from '../services/api';
-import { Search, ChevronLeft, ChevronRight, AlertCircle, Filter } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, AlertCircle, Filter, Clock, AlertTriangle } from 'lucide-react';
 
 interface FiltersState {
   application: string;
@@ -96,6 +96,51 @@ export function TicketsPage() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getAgingDisplay = (ticket: Ticket) => {
+    // If ticket is waiting for work to start
+    if (ticket.days_waiting_for_work !== null && ticket.days_waiting_for_work > 0) {
+      const days = ticket.days_waiting_for_work;
+      let colorClass = 'text-green-600 bg-green-50';
+      let icon = <Clock className="w-3 h-3" />;
+      
+      if (days >= 14) {
+        colorClass = 'text-red-600 bg-red-50';
+        icon = <AlertTriangle className="w-3 h-3" />;
+      } else if (days >= 7) {
+        colorClass = 'text-yellow-600 bg-yellow-50';
+        icon = <AlertTriangle className="w-3 h-3" />;
+      }
+      
+      return (
+        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${colorClass}`} title="Days waiting for vendor to start work">
+          {icon}
+          {days}d waiting
+        </span>
+      );
+    }
+    
+    // If ticket has work but is stalled
+    if (ticket.days_since_last_work !== null && ticket.days_since_last_work >= 14 && ticket.status !== 'Resolved' && ticket.status !== 'Closed' && ticket.status !== 'Done') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-orange-600 bg-orange-50" title={`Last work: ${ticket.last_work_date}`}>
+          <AlertTriangle className="w-3 h-3" />
+          {ticket.days_since_last_work}d stalled
+        </span>
+      );
+    }
+
+    // If work is ongoing (has work in last 14 days)
+    if (ticket.days_since_last_work !== null && ticket.days_since_last_work < 14) {
+      return (
+        <span className="text-xs text-gray-500" title={`Last work: ${ticket.last_work_date}`}>
+          {ticket.days_since_last_work}d ago
+        </span>
+      );
+    }
+
+    return <span className="text-xs text-gray-400">-</span>;
   };
 
   return (
@@ -218,13 +263,13 @@ export function TicketsPage() {
                       Application
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Phase
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Priority
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Status
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                      Aging
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                       LOE
@@ -260,9 +305,6 @@ export function TicketsPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         {ticket.application_name || ticket.application || '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        {ticket.phase || '-'}
-                      </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 text-xs rounded-full ${getPriorityBadgeColor(
@@ -280,6 +322,9 @@ export function TicketsPage() {
                         >
                           {ticket.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                        {getAgingDisplay(ticket)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
                         {ticket.loe_hours?.toFixed(1) || '-'}

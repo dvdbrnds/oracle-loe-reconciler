@@ -355,6 +355,123 @@ complianceRouter.get('/date-mismatches', (req, res, next) => {
   }
 });
 
+// Get tickets waiting on vendor (LOE approved but no work started or stalled)
+complianceRouter.get('/waiting-on-vendor', (req, res, next) => {
+  try {
+    const db = getDb();
+
+    // Tickets that are LOE Approved but have no burnt hours (vendor hasn't started)
+    const notStarted = db.prepare(`
+      SELECT 
+        jt.key,
+        jt.summary,
+        jt.application,
+        jt.priority,
+        jt.status,
+        jt.loe_hours,
+        jt.loe_approved_at,
+        jt.jira_updated_at,
+        a.name as application_name,
+        jp.phase,
+        CAST(julianday('now') - julianday(jt.loe_approved_at) AS INTEGER) as days_waiting
+      FROM jira_tickets jt
+      LEFT JOIN applications a ON jt.application = a.code
+      LEFT JOIN jira_projects jp ON jt.project_key = jp.key
+      LEFT JOIN (
+        SELECT ticket_key, SUM(hours) as total_hours
+        FROM burnt_hours
+        WHERE is_mock_data = 0
+        GROUP BY ticket_key
+      ) bh ON jt.key = bh.ticket_key
+      WHERE jt.status = 'LOE Approved'
+        AND jt.loe_approved_at IS NOT NULL
+        AND jt.is_mock_data = 0
+        AND COALESCE(bh.total_hours, 0) = 0
+      ORDER BY days_waiting DESC
+    `).all() as Array<{
+      key: string;
+      summary: string;
+      application: string | null;
+      priority: string | null;
+      status: string;
+      loe_hours: number | null;
+      loe_approved_at: string;
+      jira_updated_at: string | null;
+      application_name: string | null;
+      phase: string | null;
+      days_waiting: number;
+    }>;
+
+    // Tickets that have started work but are stalled (no work in 14+ days)
+    const stalled = db.prepare(`
+      SELECT 
+        jt.key,
+        jt.summary,
+        jt.application,
+        jt.priority,
+        jt.status,
+        jt.loe_hours,
+        jt.loe_approved_at,
+        jt.jira_updated_at,
+        a.name as application_name,
+        jp.phase,
+        bh.total_hours as hours_burnt,
+        bh.last_work_date,
+        CAST(julianday('now') - julianday(bh.last_work_date) AS INTEGER) as days_since_work
+      FROM jira_tickets jt
+      LEFT JOIN applications a ON jt.application = a.code
+      LEFT JOIN jira_projects jp ON jt.project_key = jp.key
+      INNER JOIN (
+        SELECT 
+          ticket_key, 
+          SUM(hours) as total_hours,
+          MAX(work_date) as last_work_date
+        FROM burnt_hours
+        WHERE is_mock_data = 0
+        GROUP BY ticket_key
+      ) bh ON jt.key = bh.ticket_key
+      WHERE jt.status NOT IN ('Resolved', 'Closed', 'Done', 'Cancelled')
+        AND jt.is_mock_data = 0
+        AND julianday('now') - julianday(bh.last_work_date) >= 14
+      ORDER BY days_since_work DESC
+    `).all() as Array<{
+      key: string;
+      summary: string;
+      application: string | null;
+      priority: string | null;
+      status: string;
+      loe_hours: number | null;
+      loe_approved_at: string | null;
+      jira_updated_at: string | null;
+      application_name: string | null;
+      phase: string | null;
+      hours_burnt: number;
+      last_work_date: string;
+      days_since_work: number;
+    }>;
+
+    // Calculate summary stats
+    const criticalNotStarted = notStarted.filter(t => t.days_waiting >= 14);
+    const warningNotStarted = notStarted.filter(t => t.days_waiting >= 7 && t.days_waiting < 14);
+    const totalLoeWaiting = notStarted.reduce((sum, t) => sum + (t.loe_hours || 0), 0);
+
+    res.json({
+      notStarted,
+      stalled,
+      summary: {
+        notStartedCount: notStarted.length,
+        stalledCount: stalled.length,
+        criticalCount: criticalNotStarted.length, // 14+ days waiting
+        warningCount: warningNotStarted.length,   // 7-14 days waiting
+        totalLoeHoursWaiting: Math.round(totalLoeWaiting * 10) / 10,
+        description: 'Tickets approved for work but vendor has not started or work has stalled',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Export audit trail for a ticket
 complianceRouter.get('/audit-trail/:ticketKey', (req, res, next) => {
   try {

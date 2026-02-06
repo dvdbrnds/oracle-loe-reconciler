@@ -3,8 +3,7 @@ import { useAuth } from './contexts/AuthContext';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { TicketsPage } from './pages/TicketsPage';
-import { CompliancePage } from './pages/CompliancePage';
+import { ForecastPage } from './pages/ForecastPage';
 import { ImportPage } from './pages/ImportPage';
 import { AdminPage } from './pages/AdminPage';
 
@@ -50,8 +49,9 @@ export default function App() {
         }
       >
         <Route index element={<DashboardPage />} />
-        <Route path="tickets" element={<TicketsPage />} />
-        <Route path="compliance" element={<CompliancePage />} />
+        <Route path="forecast" element={<ForecastPage />} />
+        <Route path="tickets" element={<Navigate to="/" replace />} />
+        <Route path="compliance" element={<Navigate to="/" replace />} />
         <Route path="import" element={<ImportPage />} />
         <Route
           path="admin"

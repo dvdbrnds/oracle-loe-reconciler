@@ -64,12 +64,14 @@ interface WaitingTicket {
   phase: string | null;
   status: string;
   loe_hours: number | null;
-  loe_approved_at: string;
+  loe_approved_at: string | null;
+  jira_created_at: string | null;
   jira_updated_at: string | null;
   days_waiting?: number;
   days_since_work?: number;
   hours_burnt?: number;
   last_work_date?: string;
+  ready_reason?: string;
 }
 
 interface WaitingOnVendorResponse {
@@ -282,7 +284,7 @@ export function CompliancePage() {
             <div className="px-6 py-4 border-b bg-amber-50">
               <h2 className="text-lg font-semibold text-amber-800">Not Started - Waiting for Vendor</h2>
               <p className="text-sm text-amber-600 mt-1">
-                Tickets approved for work but vendor has not logged any hours ({waitingOnVendor?.summary?.totalLoeHoursWaiting || 0} LOE hours waiting)
+                Tickets ready for work (LOE Approved or P1/P2 priority) but vendor has not logged any hours
               </p>
             </div>
             {waitingOnVendor?.notStarted && waitingOnVendor.notStarted.length > 0 ? (
@@ -293,7 +295,7 @@ export function CompliancePage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Application</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Approved</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ready Via</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Days Waiting</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">LOE Hours</th>
                     </tr>
@@ -321,7 +323,7 @@ export function CompliancePage() {
                           <td className="px-6 py-4 text-sm">{ticket.application_name || ticket.application || '-'}</td>
                           <td className="px-6 py-4">
                             <span className={`px-2 py-1 text-xs rounded-full ${
-                              ticket.priority === 'Critical' || ticket.priority === 'Highest'
+                              ticket.priority === 'Critical' || ticket.priority === 'Highest' || ticket.priority === 'Urgent'
                                 ? 'bg-red-100 text-red-800'
                                 : ticket.priority === 'High'
                                 ? 'bg-orange-100 text-orange-800'
@@ -330,11 +332,14 @@ export function CompliancePage() {
                               {ticket.priority || 'None'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {ticket.loe_approved_at 
-                              ? new Date(ticket.loe_approved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                              : '-'
-                            }
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              ticket.ready_reason === 'Urgent Priority'
+                                ? 'bg-red-50 text-red-700'
+                                : 'bg-green-50 text-green-700'
+                            }`}>
+                              {ticket.ready_reason || 'LOE Approved'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 text-center">
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColor}`}>

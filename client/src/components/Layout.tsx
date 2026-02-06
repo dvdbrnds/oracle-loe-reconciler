@@ -4,19 +4,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import {
   LayoutDashboard,
-  ListTodo,
-  AlertTriangle,
   Upload,
   Settings,
   LogOut,
   Menu,
   X,
+  CalendarClock,
 } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/tickets', label: 'Tickets', icon: ListTodo },
-  { path: '/compliance', label: 'Compliance', icon: AlertTriangle },
+  { path: '/forecast', label: 'Forecast', icon: CalendarClock },
   { path: '/import', label: 'Import', icon: Upload },
 ];
 
@@ -33,7 +31,7 @@ export function Layout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {useMockData && (
         <div className="bg-yellow-500 text-yellow-900 text-center py-2 px-4 text-sm font-medium">
           DEMO MODE - Using simulated FAKE data. Configure Jira credentials for live data.
@@ -139,8 +137,8 @@ export function Layout() {
           />
         )}
 
-        <main className="flex-1 min-h-screen">
-          <div className="p-6 pt-16 lg:pt-6">
+        <main className="flex-1 min-h-screen min-w-0 overflow-x-hidden">
+          <div className="p-6 pt-16 lg:pt-6 max-w-full">
             <Outlet />
           </div>
         </main>

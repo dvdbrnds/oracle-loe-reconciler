@@ -360,7 +360,8 @@ complianceRouter.get('/waiting-on-vendor', (req, res, next) => {
   try {
     const db = getDb();
 
-    // Tickets that are LOE Approved but have no burnt hours (vendor hasn't started)
+    // Tickets that are ready for work but have no burnt hours (vendor hasn't started)
+    // Includes: LOE Approved tickets OR P1/P2 (Critical/High/Urgent) tickets
     const notStarted = db.prepare(`
       SELECT 
         jt.key,
@@ -370,10 +371,15 @@ complianceRouter.get('/waiting-on-vendor', (req, res, next) => {
         jt.status,
         jt.loe_hours,
         jt.loe_approved_at,
+        jt.jira_created_at,
         jt.jira_updated_at,
         a.name as application_name,
         jp.phase,
-        CAST(julianday('now') - julianday(jt.loe_approved_at) AS INTEGER) as days_waiting
+        CAST(julianday('now') - julianday(COALESCE(jt.loe_approved_at, jt.jira_created_at)) AS INTEGER) as days_waiting,
+        CASE WHEN jt.status = 'LOE Approved' THEN 'LOE Approved'
+             WHEN jt.priority IN ('Critical', 'High', 'Highest', 'Urgent') THEN 'Urgent Priority'
+             ELSE 'Other'
+        END as ready_reason
       FROM jira_tickets jt
       LEFT JOIN applications a ON jt.application = a.code
       LEFT JOIN jira_projects jp ON jt.project_key = jp.key
@@ -383,8 +389,11 @@ complianceRouter.get('/waiting-on-vendor', (req, res, next) => {
         WHERE is_mock_data = 0
         GROUP BY ticket_key
       ) bh ON jt.key = bh.ticket_key
-      WHERE jt.status = 'LOE Approved'
-        AND jt.loe_approved_at IS NOT NULL
+      WHERE (
+          jt.status = 'LOE Approved'
+          OR jt.priority IN ('Critical', 'High', 'Highest', 'Urgent')
+        )
+        AND jt.status NOT IN ('Resolved', 'Closed', 'Done', 'Cancelled')
         AND jt.is_mock_data = 0
         AND COALESCE(bh.total_hours, 0) = 0
       ORDER BY days_waiting DESC
@@ -395,11 +404,13 @@ complianceRouter.get('/waiting-on-vendor', (req, res, next) => {
       priority: string | null;
       status: string;
       loe_hours: number | null;
-      loe_approved_at: string;
+      loe_approved_at: string | null;
+      jira_created_at: string | null;
       jira_updated_at: string | null;
       application_name: string | null;
       phase: string | null;
       days_waiting: number;
+      ready_reason: string;
     }>;
 
     // Tickets that have started work but are stalled (no work in 14+ days)

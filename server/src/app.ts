@@ -15,6 +15,7 @@ import { complianceRouter } from './routes/compliance.js';
 import { adminRouter } from './routes/admin.js';
 import { syncRouter } from './routes/sync.js';
 import { samlRouter } from './routes/saml.js';
+import { forecastRouter } from './routes/forecast.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -566,6 +567,7 @@ app.use('/api/import', importRouter);
 app.use('/api/compliance', complianceRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/sync', syncRouter);
+app.use('/api/forecast', forecastRouter);
 
 // Serve static files in production
 if (config.nodeEnv === 'production') {

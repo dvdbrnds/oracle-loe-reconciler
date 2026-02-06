@@ -3,6 +3,7 @@ import { getDb } from '../db/database.js';
 import { authenticate, requireAdmin } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { jiraService, JiraSyncResult } from '../services/jira.js';
+import { schedulerService } from '../services/scheduler.js';
 
 export const syncRouter = Router();
 
@@ -170,6 +171,16 @@ syncRouter.post('/jira', requireAdmin, async (req, res, next) => {
 
     console.log(`\n✅ Jira sync complete: ${totalSynced} tickets (${totalCreated} new, ${totalUpdated} updated), ${totalErrors} errors`);
 
+    // Auto-recalculate forecast schedule after sync
+    let scheduleStats = { scheduled: 0, immediate: 0, deferred: 0 };
+    try {
+      console.log('📅 Auto-recalculating forecast schedule...');
+      scheduleStats = schedulerService.recalculate(24);
+      console.log(`   ✅ Scheduled ${scheduleStats.scheduled} tickets (${scheduleStats.immediate} immediate, ${scheduleStats.deferred} deferred)`);
+    } catch (scheduleError) {
+      console.error('   ⚠️ Failed to recalculate schedule:', scheduleError);
+    }
+
     res.json({
       success: totalErrors === 0,
       message: `Synced ${totalSynced} tickets from ${projects.length} projects`,
@@ -178,6 +189,8 @@ syncRouter.post('/jira', requireAdmin, async (req, res, next) => {
         totalCreated,
         totalUpdated,
         totalErrors,
+        scheduleRecalculated: scheduleStats.scheduled > 0,
+        scheduledTickets: scheduleStats.scheduled,
       },
       results,
     });

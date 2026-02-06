@@ -324,6 +324,29 @@ function getMigrations(): Record<string, string> {
       WHERE is_mock_data = 0
       AND id NOT IN (SELECT DISTINCT import_batch_id FROM burnt_hours WHERE is_mock_data = 0);
     `,
+
+    '005_ticket_schedules': `
+      -- Ticket scheduling table for forecasting feature
+      -- Tracks which month each ticket is scheduled for work
+      CREATE TABLE ticket_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_key TEXT NOT NULL REFERENCES jira_tickets(key) ON DELETE CASCADE,
+        scheduled_year INTEGER NOT NULL,
+        scheduled_month INTEGER NOT NULL CHECK (scheduled_month >= 1 AND scheduled_month <= 12),
+        scheduled_hours REAL,              -- Override LOE hours if needed
+        auto_scheduled INTEGER DEFAULT 1,  -- 1 = auto-scheduled, 0 = manually scheduled
+        priority_locked INTEGER DEFAULT 0, -- 1 = P1/P2/Payroll, cannot be deferred
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(ticket_key, scheduled_year, scheduled_month)
+      );
+
+      -- Indexes for common queries
+      CREATE INDEX idx_ticket_schedules_ticket ON ticket_schedules(ticket_key);
+      CREATE INDEX idx_ticket_schedules_period ON ticket_schedules(scheduled_year, scheduled_month);
+      CREATE INDEX idx_ticket_schedules_auto ON ticket_schedules(auto_scheduled);
+    `,
   };
 }
 

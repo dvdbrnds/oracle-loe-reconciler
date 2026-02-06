@@ -31,9 +31,9 @@ if (!envLoaded) {
 const configSchema = z.object({
   // Server
   nodeEnv: z.enum(['development', 'production', 'test']).default('development'),
-  port: z.coerce.number().default(3001),
+  port: z.coerce.number().default(4001),
   host: z.string().default('0.0.0.0'), // 0.0.0.0 so Docker/Coolify can reach the app
-  clientUrl: z.string().default('http://localhost:5173'),
+  clientUrl: z.string().default('http://localhost:4173'),
 
   // Database
   databasePath: z.string().default('./db/vendor_hours.db'),

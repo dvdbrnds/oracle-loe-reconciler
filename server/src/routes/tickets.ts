@@ -93,17 +93,22 @@ ticketsRouter.get('/', (req, res, next) => {
         a.name as application_name,
         COALESCE(bh.hours_burnt, 0) as hours_burnt,
         COALESCE(bh.hours_burnt, 0) > 0 AND jt.status != 'LOE Approved' as has_compliance_issue,
-        -- Aging metrics
+        -- Aging metrics: always provide useful timing info
+        -- days_since_approved: days since LOE approved or created (for priority tickets)
         CASE 
           WHEN jt.loe_approved_at IS NOT NULL 
           THEN CAST(julianday('now') - julianday(jt.loe_approved_at) AS INTEGER)
-          ELSE NULL
+          ELSE CAST(julianday('now') - julianday(COALESCE(jt.jira_created_at, 'now')) AS INTEGER)
         END as days_since_approved,
+        -- days_waiting_for_work: only for ready tickets (approved or urgent) with no work
         CASE 
-          WHEN jt.loe_approved_at IS NOT NULL AND COALESCE(bh.hours_burnt, 0) = 0
-          THEN CAST(julianday('now') - julianday(jt.loe_approved_at) AS INTEGER)
+          WHEN (jt.loe_approved_at IS NOT NULL OR jt.priority IN ('Critical', 'High', 'Highest', 'Urgent'))
+            AND COALESCE(bh.hours_burnt, 0) = 0
+            AND jt.status NOT IN ('Resolved', 'Closed', 'Done', 'Cancelled')
+          THEN CAST(julianday('now') - julianday(COALESCE(jt.loe_approved_at, jt.jira_created_at)) AS INTEGER)
           ELSE NULL
         END as days_waiting_for_work,
+        -- days_since_last_work: only when there's actual work logged
         CASE
           WHEN bh.last_work_date IS NOT NULL
           THEN CAST(julianday('now') - julianday(bh.last_work_date) AS INTEGER)

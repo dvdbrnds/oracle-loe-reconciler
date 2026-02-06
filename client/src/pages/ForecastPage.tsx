@@ -507,6 +507,105 @@ export function ForecastPage() {
         </div>
       )}
 
+      {/* Timeline View */}
+      <div className="bg-white rounded-xl shadow-sm border p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Timeline</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => scrollTimeline('past')}
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
+              title="View earlier months"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setStartOffset(-3)}
+              className="px-3 py-1 text-sm hover:bg-gray-100 rounded-lg text-gray-600"
+            >
+              Today
+            </button>
+            <button
+              onClick={() => scrollTimeline('future')}
+              disabled={startOffset >= 0}
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 disabled:opacity-30"
+              title="View later months"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <div className="flex gap-2 min-w-max pb-2">
+            {forecast.months.slice(0, 15).map(month => {
+              const isOverCapacity = month.scheduled_hours > month.allocated_hours;
+              const now = new Date();
+              const isCurrentMonth = month.year === now.getFullYear() && month.month === now.getMonth() + 1;
+              
+              return (
+                <div
+                  key={`${month.year}-${month.month}`}
+                  className={`w-24 flex-shrink-0 ${isCurrentMonth ? 'ring-2 ring-primary ring-offset-2 rounded-lg' : ''}`}
+                >
+                  <div className={`text-xs text-center mb-1 ${month.is_historical ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {formatMonth(month.year, month.month)}
+                    {month.is_historical && <span className="ml-1 text-[10px]">(past)</span>}
+                  </div>
+                  <div className={`h-20 rounded-lg relative overflow-hidden ${
+                    month.is_historical 
+                      ? 'bg-gray-100 border border-dashed border-gray-300' 
+                      : getProgressBarClass(month.scheduled_hours, month.allocated_hours)
+                  }`}>
+                    {/* Immediate hours (red for future, gray-red for past) */}
+                    {month.immediate_hours > 0 && (
+                      <div
+                        className={`absolute bottom-0 left-0 right-0 ${month.is_historical ? 'bg-red-300' : 'bg-red-400'}`}
+                        style={{ height: `${Math.min(100, (month.immediate_hours / month.allocated_hours) * 100)}%` }}
+                      />
+                    )}
+                    {/* Deferrable hours (blue for future, gray-blue for past) */}
+                    {month.deferrable_hours > 0 && (
+                      <div
+                        className={`absolute left-0 right-0 ${month.is_historical ? 'bg-blue-300' : 'bg-blue-400'}`}
+                        style={{
+                          bottom: `${Math.min(100, (month.immediate_hours / month.allocated_hours) * 100)}%`,
+                          height: `${Math.min(100, (month.deferrable_hours / month.allocated_hours) * 100)}%`,
+                        }}
+                      />
+                    )}
+                    {/* Over capacity indicator */}
+                    {isOverCapacity && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-center mt-1">
+                    <span className={isOverCapacity ? 'text-red-600 font-medium' : 'text-gray-600'}>
+                      {month.scheduled_hours.toFixed(0)}/{month.allocated_hours}h
+                    </span>
+                  </div>
+                  <div className="text-xs text-center text-gray-400">
+                    {month.tickets.length} tickets
+                  </div>
+                </div>
+              );
+            })}
+            {forecast.months.length > 15 && (
+              <div className="w-24 flex-shrink-0 flex items-center justify-center text-gray-400 text-sm">
+                +{forecast.months.length - 15} more
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-4 mt-3 text-xs text-gray-500">
+          <span><span className="inline-block w-3 h-3 bg-red-400 rounded mr-1"></span>Immediate (P1/P2/Payroll)</span>
+          <span><span className="inline-block w-3 h-3 bg-blue-400 rounded mr-1"></span>Deferrable / Regular</span>
+          <span><span className="inline-block w-3 h-3 bg-gray-200 rounded mr-1"></span>Available</span>
+          <span><span className="inline-block w-3 h-3 bg-gray-100 border border-dashed border-gray-300 rounded mr-1"></span>Historical (actual)</span>
+        </div>
+      </div>
+
       {/* Committed & Pipeline Details */}
       {workload && (workload.committed.tickets.length > 0 || workload.pipeline.tickets.length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -641,105 +740,6 @@ export function ForecastPage() {
           </div>
         </div>
       )}
-
-      {/* Timeline View */}
-      <div className="bg-white rounded-xl shadow-sm border p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Timeline</h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => scrollTimeline('past')}
-              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
-              title="View earlier months"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setStartOffset(-3)}
-              className="px-3 py-1 text-sm hover:bg-gray-100 rounded-lg text-gray-600"
-            >
-              Today
-            </button>
-            <button
-              onClick={() => scrollTimeline('future')}
-              disabled={startOffset >= 0}
-              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 disabled:opacity-30"
-              title="View later months"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <div className="flex gap-2 min-w-max pb-2">
-            {forecast.months.slice(0, 15).map(month => {
-              const isOverCapacity = month.scheduled_hours > month.allocated_hours;
-              const now = new Date();
-              const isCurrentMonth = month.year === now.getFullYear() && month.month === now.getMonth() + 1;
-              
-              return (
-                <div
-                  key={`${month.year}-${month.month}`}
-                  className={`w-24 flex-shrink-0 ${isCurrentMonth ? 'ring-2 ring-primary ring-offset-2 rounded-lg' : ''}`}
-                >
-                  <div className={`text-xs text-center mb-1 ${month.is_historical ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {formatMonth(month.year, month.month)}
-                    {month.is_historical && <span className="ml-1 text-[10px]">(past)</span>}
-                  </div>
-                  <div className={`h-20 rounded-lg relative overflow-hidden ${
-                    month.is_historical 
-                      ? 'bg-gray-100 border border-dashed border-gray-300' 
-                      : getProgressBarClass(month.scheduled_hours, month.allocated_hours)
-                  }`}>
-                    {/* Immediate hours (red for future, gray-red for past) */}
-                    {month.immediate_hours > 0 && (
-                      <div
-                        className={`absolute bottom-0 left-0 right-0 ${month.is_historical ? 'bg-red-300' : 'bg-red-400'}`}
-                        style={{ height: `${Math.min(100, (month.immediate_hours / month.allocated_hours) * 100)}%` }}
-                      />
-                    )}
-                    {/* Deferrable hours (blue for future, gray-blue for past) */}
-                    {month.deferrable_hours > 0 && (
-                      <div
-                        className={`absolute left-0 right-0 ${month.is_historical ? 'bg-blue-300' : 'bg-blue-400'}`}
-                        style={{
-                          bottom: `${Math.min(100, (month.immediate_hours / month.allocated_hours) * 100)}%`,
-                          height: `${Math.min(100, (month.deferrable_hours / month.allocated_hours) * 100)}%`,
-                        }}
-                      />
-                    )}
-                    {/* Over capacity indicator */}
-                    {isOverCapacity && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <AlertCircle className="w-5 h-5 text-red-600" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-xs text-center mt-1">
-                    <span className={isOverCapacity ? 'text-red-600 font-medium' : 'text-gray-600'}>
-                      {month.scheduled_hours.toFixed(0)}/{month.allocated_hours}h
-                    </span>
-                  </div>
-                  <div className="text-xs text-center text-gray-400">
-                    {month.tickets.length} tickets
-                  </div>
-                </div>
-              );
-            })}
-            {forecast.months.length > 15 && (
-              <div className="w-24 flex-shrink-0 flex items-center justify-center text-gray-400 text-sm">
-                +{forecast.months.length - 15} more
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-4 mt-3 text-xs text-gray-500">
-          <span><span className="inline-block w-3 h-3 bg-red-400 rounded mr-1"></span>Immediate (P1/P2/Payroll)</span>
-          <span><span className="inline-block w-3 h-3 bg-blue-400 rounded mr-1"></span>Deferrable / Regular</span>
-          <span><span className="inline-block w-3 h-3 bg-gray-200 rounded mr-1"></span>Available</span>
-          <span><span className="inline-block w-3 h-3 bg-gray-100 border border-dashed border-gray-300 rounded mr-1"></span>Historical (actual)</span>
-        </div>
-      </div>
 
       {/* Monthly Breakdown Table */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">

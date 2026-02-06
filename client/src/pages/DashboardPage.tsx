@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api, BudgetOverview, Ticket, TicketsResponse } from '../services/api';
 import { 
-  AlertTriangle, TrendingUp, Clock, Target, Search, 
+  AlertTriangle, Search, 
   ChevronLeft, ChevronRight, Calendar, ChevronDown, 
   Filter, AlertCircle, Info
 } from 'lucide-react';
